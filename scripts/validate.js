@@ -18,12 +18,14 @@ const jsFiles = [
   "popup.js",
   "options.js",
   "scripts/update_strict_rules.js",
-  "scripts/validate.js"
+  "scripts/validate.js",
+  "tests/rule-quality.test.js"
 ];
 
 const mustExist = [
   "README.md",
   "CONTRIBUTING.md",
+  "tests/rule-quality.test.js",
   "strict_sources.txt",
   ".github/workflows/validate.yml",
   "scripts/package_extension.sh"

@@ -26,6 +26,12 @@ npm run rules:update
 npm run validate
 ```
 
+### Run rule quality tests
+
+```bash
+npm run test:quality
+```
+
 ### Build release zip
 
 ```bash

@@ -37,6 +37,8 @@ safe_browsing/
 ├── rules_standard.json
 ├── rules_strict.json
 ├── strict_sources.txt
+├── tests/
+│   └── rule-quality.test.js
 ├── scripts/
 │   ├── update_strict_rules.js
 │   ├── validate.js
@@ -77,6 +79,19 @@ This checks:
 - JSON files are valid
 - JavaScript syntax is valid
 
+### Run rule quality tests
+
+```bash
+npm run test:quality
+```
+
+This verifies:
+- rule schema integrity (IDs, domains, resource types)
+- standard baseline coverage domains are present
+- strict mode adds coverage beyond standard
+- allowlist behavior is preserved in evaluation scenarios
+- safe first-party domains are not blocked
+
 ### Refresh strict rules
 
 ```bash
@@ -105,10 +120,11 @@ Output is written to `dist/`.
 ## Release checklist
 
 1. Run `npm run validate`.
-2. Regenerate strict rules if needed.
-3. Update docs/version if behavior changed.
-4. Build zip and sanity-test in a fresh browser profile.
-5. Tag and publish.
+2. Run `npm run test:quality`.
+3. Regenerate strict rules if needed.
+4. Update docs/version if behavior changed.
+5. Build zip and sanity-test in a fresh browser profile.
+6. Tag and publish.
 
 ## Permissions and privacy
 
