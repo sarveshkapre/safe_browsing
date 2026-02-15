@@ -32,6 +32,11 @@ const jsFiles = [
 const mustExist = [
   "README.md",
   "CONTRIBUTING.md",
+  "icons/icon16.png",
+  "icons/icon32.png",
+  "icons/icon48.png",
+  "icons/icon128.png",
+  "scripts/generate_icons.py",
   "tests/rule-quality.test.js",
   "tests/rules-compiler.test.js",
   "content/cookie_handler.js",

@@ -5,6 +5,7 @@
 dist/
 generated/
 *.zip
+.venv/
 
 # Logs
 npm-debug.log*

@@ -6,6 +6,7 @@
   "scripts": {
     "validate": "node scripts/validate.js",
     "rules:compile": "node scripts/compile_rules.js",
+    "icons:generate": ".venv/bin/python scripts/generate_icons.py",
     "test:quality": "node --test tests/rule-quality.test.js",
     "test:compiler": "node --test tests/rules-compiler.test.js",
     "test": "npm run test:quality && npm run test:compiler",

@@ -12,6 +12,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - `Strict` mode: broader blocking rules for aggressive filtering.
 - Optional `Annoyances` and `Regional` rulesets (toggle from popup/options).
 - Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
+- Branded extension icons (`16/32/48/128/256/512`) generated locally.
 - Per-site allowlist from popup.
 - Dedicated allowlist management page.
 - Block counters in popup (`session` and `today`).
@@ -36,6 +37,13 @@ safe_browsing/
 ├── content/
 │   ├── cookie_handler.js
 │   └── cookie_handler.css
+├── icons/
+│   ├── icon16.png
+│   ├── icon32.png
+│   ├── icon48.png
+│   ├── icon128.png
+│   ├── icon256.png
+│   └── icon512.png
 ├── popup.html
 ├── popup.js
 ├── options.html
@@ -54,6 +62,7 @@ safe_browsing/
 │   └── rules-compiler.test.js
 ├── scripts/
 │   ├── compile_rules.js
+│   ├── generate_icons.py
 │   ├── update_strict_rules.js
 │   ├── lib/rules_compiler.js
 │   ├── validate.js
@@ -158,6 +167,12 @@ npm run build:zip
 ```
 
 Output is written to `dist/`.
+
+### Regenerate icons
+
+```bash
+.venv/bin/python scripts/generate_icons.py
+```
 
 ## Release checklist
 
