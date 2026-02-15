@@ -16,10 +16,8 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
 - X/Twitter feed ad hiding (beta): removes timeline entries with explicit `Ad` header badge.
 - Branded extension icons (`16/32/48/128/256/512`) generated locally.
-- Blocked activity log in settings (domain, site, ruleset, time).
 - Per-site allowlist from popup.
 - Dedicated allowlist management page.
-- Block counters in popup (`session` and `today`).
 - Rule updates from EasyList-style sources.
 
 ## Architecture
@@ -27,9 +25,9 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - Blocking engine: Chromium `declarativeNetRequest` static rulesets.
 - Cookie UX layer: `document_start` content script for consent banners.
 - X feed UX layer: lightweight content script for explicit `Ad`-badge timeline items.
-- Runtime state: background service worker (`mode`, allowlist, counters).
+- Runtime state: background service worker (`mode`, allowlist, local toggles).
 - UI:
-  - Popup for mode toggle, current-site allowlist, and counters.
+  - Popup for mode toggle and current-site allowlist.
   - Options page for full allowlist management.
 - Rule compiler pipeline: `sources -> normalize -> score -> shard -> output`.
 
@@ -99,8 +97,7 @@ safe_browsing/
 6. Toggle `X ads (beta)` to hide X/Twitter timeline ads with explicit `Ad` labels.
 7. Toggle optional `Annoyances` / `Regional` filters if needed.
 8. Use `Allow ads on this site` for the current domain.
-9. Click `View blocked activity` to inspect blocked requests.
-10. Click `Manage allowlist` to remove/clear allowlisted domains.
+9. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 
@@ -196,17 +193,16 @@ Output is written to `dist/`.
 ## Permissions and privacy
 
 - `declarativeNetRequest`: apply network blocking rules.
-- `declarativeNetRequestFeedback`: read rule matches for counters (dev/unpacked context).
-- `storage`: persist mode, allowlist, counters.
-- `tabs`: read active tab URL for current-site allowlist action.
+- `storage`: persist mode, allowlist, and local feature toggles.
+- `activeTab`: read the current tab URL when using current-site allowlist actions.
 - `<all_urls>` host permission is required for global request filtering.
 
 The extension does not send browsing data to external servers.
+It does not keep blocked-request logs or per-request telemetry.
 
 ## Troubleshooting
 
 - Rules not applying: reload extension in `chrome://extensions`.
-- Counters not increasing: confirm unpacked/developer install context.
 - Site breakage: switch to `Standard` or allowlist the domain.
 - X not loading cleanly: keep `X compatibility mode` enabled.
 
