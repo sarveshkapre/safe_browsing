@@ -12,6 +12,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - `Strict` mode: broader blocking rules for aggressive filtering.
 - Optional `Annoyances` and `Regional` rulesets (toggle from popup/options).
 - Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
+- Optional X/Twitter promoted-post hiding.
 - Branded extension icons (`16/32/48/128/256/512`) generated locally.
 - Blocked activity log in settings (domain, site, ruleset, time).
 - Per-site allowlist from popup.
@@ -37,7 +38,8 @@ safe_browsing/
 ├── background.js
 ├── content/
 │   ├── cookie_handler.js
-│   └── cookie_handler.css
+│   ├── cookie_handler.css
+│   └── x_ads_handler.js
 ├── icons/
 │   ├── icon16.png
 │   ├── icon32.png
@@ -89,10 +91,11 @@ safe_browsing/
 1. Click the extension icon.
 2. Select `Standard` or `Strict`.
 3. Toggle `Cookie handling` on/off if needed.
-4. Toggle optional `Annoyances` / `Regional` filters if needed.
-5. Use `Allow ads on this site` for the current domain.
-6. Click `View blocked activity` to inspect blocked requests.
-7. Click `Manage allowlist` to remove/clear allowlisted domains.
+4. Toggle `Hide X/Twitter ads` on/off if needed.
+5. Toggle optional `Annoyances` / `Regional` filters if needed.
+6. Use `Allow ads on this site` for the current domain.
+7. Click `View blocked activity` to inspect blocked requests.
+8. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 
