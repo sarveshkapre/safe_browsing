@@ -11,6 +11,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - `Standard` mode (default): compact high-impact blocking.
 - `Strict` mode: broader blocking rules for aggressive filtering.
 - Global `Pause protection` switch to temporarily disable blocking.
+- `X compatibility mode` (default ON): bypasses network blocking on X/Twitter to avoid feed-load breakage.
 - Optional `Annoyances` and `Regional` rulesets (toggle from popup/options).
 - Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
 - X/Twitter feed ad hiding (beta): removes timeline entries with explicit `Ad` header badge.
@@ -94,11 +95,12 @@ safe_browsing/
 2. Select `Standard` or `Strict`.
 3. Use `Pause protection` for temporary pass-through if something breaks.
 4. Toggle `Cookie handling` on/off if needed.
-5. Toggle `X ads (beta)` to hide X/Twitter timeline ads with explicit `Ad` labels.
-6. Toggle optional `Annoyances` / `Regional` filters if needed.
-7. Use `Allow ads on this site` for the current domain.
-8. Click `View blocked activity` to inspect blocked requests.
-9. Click `Manage allowlist` to remove/clear allowlisted domains.
+5. Leave `X compatibility mode` enabled to keep X/Twitter loading reliably.
+6. Toggle `X ads (beta)` to hide X/Twitter timeline ads with explicit `Ad` labels.
+7. Toggle optional `Annoyances` / `Regional` filters if needed.
+8. Use `Allow ads on this site` for the current domain.
+9. Click `View blocked activity` to inspect blocked requests.
+10. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 
@@ -206,6 +208,7 @@ The extension does not send browsing data to external servers.
 - Rules not applying: reload extension in `chrome://extensions`.
 - Counters not increasing: confirm unpacked/developer install context.
 - Site breakage: switch to `Standard` or allowlist the domain.
+- X not loading cleanly: keep `X compatibility mode` enabled.
 
 ## Contributing
 

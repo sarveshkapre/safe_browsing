@@ -3,6 +3,7 @@ const toggleSiteButton = document.getElementById("toggle-site");
 const pausedToggle = document.getElementById("toggle-paused");
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
 const xAdsBlockingToggle = document.getElementById("toggle-x-ads-blocking");
+const xCompatibilityToggle = document.getElementById("toggle-x-compatibility");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const manageAllowlistButton = document.getElementById("manage-allowlist");
@@ -22,6 +23,7 @@ let countersAvailable = false;
 let paused = false;
 let cookieHandlingEnabled = true;
 let xAdsBlockingEnabled = true;
+let xCompatibilityModeEnabled = true;
 let optionalRulesets = {
   annoyances: false,
   regional: false
@@ -52,6 +54,7 @@ function render() {
   pausedToggle.checked = paused;
   cookieHandlingToggle.checked = cookieHandlingEnabled;
   xAdsBlockingToggle.checked = xAdsBlockingEnabled;
+  xCompatibilityToggle.checked = xCompatibilityModeEnabled;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
 
@@ -75,9 +78,10 @@ function render() {
     : "Blocked today: unavailable";
   const activityLine = `Blocked activity entries: ${blockedActivityCount}`;
   const pausedLine = `Protection: ${paused ? "paused" : "active"}`;
+  const xCompatLine = `X compatibility: ${xCompatibilityModeEnabled ? "on" : "off"}`;
 
   meta.classList.remove("error");
-  meta.textContent = `${pausedLine}\n${siteLine}\n${allowlistLine}\n${sessionLine}\n${todayLine}\n${activityLine}`;
+  meta.textContent = `${pausedLine}\n${xCompatLine}\n${siteLine}\n${allowlistLine}\n${sessionLine}\n${todayLine}\n${activityLine}`;
 
   isApplyingState = false;
 }
@@ -107,6 +111,7 @@ async function loadState() {
   paused = response.paused === true;
   cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
   xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
+  xCompatibilityModeEnabled = response.xCompatibilityModeEnabled !== false;
   optionalRulesets = response.optionalRulesets || optionalRulesets;
 
   render();
@@ -173,6 +178,21 @@ async function setXAdsBlocking(enabled) {
   render();
 }
 
+async function setXCompatibilityMode(enabled) {
+  const response = await sendMessage({
+    type: "SET_X_COMPATIBILITY_MODE",
+    enabled
+  });
+
+  if (!response.ok) {
+    renderError(response.error);
+    return;
+  }
+
+  xCompatibilityModeEnabled = response.xCompatibilityModeEnabled !== false;
+  render();
+}
+
 modeSelect.addEventListener("change", async () => {
   if (isApplyingState) {
     return;
@@ -231,6 +251,14 @@ xAdsBlockingToggle.addEventListener("change", async () => {
   }
 
   await setXAdsBlocking(xAdsBlockingToggle.checked);
+});
+
+xCompatibilityToggle.addEventListener("change", async () => {
+  if (isApplyingState) {
+    return;
+  }
+
+  await setXCompatibilityMode(xCompatibilityToggle.checked);
 });
 
 annoyancesToggle.addEventListener("change", async () => {

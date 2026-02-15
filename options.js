@@ -1,6 +1,7 @@
 const pausedToggle = document.getElementById("toggle-paused");
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
 const xAdsBlockingToggle = document.getElementById("toggle-x-ads-blocking");
+const xCompatibilityToggle = document.getElementById("toggle-x-compatibility");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const rulesetStatus = document.getElementById("ruleset-status");
@@ -70,11 +71,18 @@ function rulesetLabel(rulesetId) {
   }
 }
 
-function applyRulesetUI(optionalRulesets, paused, cookieHandlingEnabled, xAdsBlockingEnabled) {
+function applyRulesetUI(
+  optionalRulesets,
+  paused,
+  cookieHandlingEnabled,
+  xAdsBlockingEnabled,
+  xCompatibilityModeEnabled
+) {
   isApplyingRulesetState = true;
   pausedToggle.checked = paused === true;
   cookieHandlingToggle.checked = cookieHandlingEnabled !== false;
   xAdsBlockingToggle.checked = xAdsBlockingEnabled !== false;
+  xCompatibilityToggle.checked = xCompatibilityModeEnabled !== false;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
   isApplyingRulesetState = false;
@@ -95,10 +103,17 @@ async function loadRulesetSettings() {
   const paused = response.paused === true;
   const cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
   const xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
+  const xCompatibilityModeEnabled = response.xCompatibilityModeEnabled !== false;
 
-  applyRulesetUI(optionalRulesets, paused, cookieHandlingEnabled, xAdsBlockingEnabled);
+  applyRulesetUI(
+    optionalRulesets,
+    paused,
+    cookieHandlingEnabled,
+    xAdsBlockingEnabled,
+    xCompatibilityModeEnabled
+  );
   setRulesetStatus(
-    `Protection: ${paused ? "paused" : "active"} | Cookie: ${cookieHandlingEnabled ? "on" : "off"} | X ads: ${xAdsBlockingEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
+    `Protection: ${paused ? "paused" : "active"} | Cookie: ${cookieHandlingEnabled ? "on" : "off"} | X ads: ${xAdsBlockingEnabled ? "on" : "off"} | X compat: ${xCompatibilityModeEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
     false
   );
 }
@@ -154,6 +169,20 @@ async function setXAdsBlocking(enabled) {
 
   if (!response.ok) {
     setRulesetStatus(response.error || "Failed to update X ad blocking", true);
+    return;
+  }
+
+  await loadRulesetSettings();
+}
+
+async function setXCompatibilityMode(enabled) {
+  const response = await sendMessage({
+    type: "SET_X_COMPATIBILITY_MODE",
+    enabled
+  });
+
+  if (!response.ok) {
+    setRulesetStatus(response.error || "Failed to update X compatibility mode", true);
     return;
   }
 
@@ -286,6 +315,14 @@ xAdsBlockingToggle.addEventListener("change", async () => {
   }
 
   await setXAdsBlocking(xAdsBlockingToggle.checked);
+});
+
+xCompatibilityToggle.addEventListener("change", async () => {
+  if (isApplyingRulesetState) {
+    return;
+  }
+
+  await setXCompatibilityMode(xCompatibilityToggle.checked);
 });
 
 annoyancesToggle.addEventListener("change", async () => {

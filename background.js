@@ -16,6 +16,10 @@ const OPTIONAL_RULESET_KEYS = Object.keys(OPTIONAL_RULESETS);
 const ALLOWLIST_RULE_BASE = 100000;
 const ALLOWLIST_RULE_MAX = 120000;
 const MAX_ALLOWLIST_DOMAINS = 2000;
+const X_COMPAT_MAIN_RULE_ID = 130000;
+const X_COMPAT_SUBRESOURCE_RULE_ID = 130001;
+const X_COMPAT_RULE_IDS = [X_COMPAT_MAIN_RULE_ID, X_COMPAT_SUBRESOURCE_RULE_ID];
+const X_COMPAT_DOMAINS = ["x.com", "twitter.com"];
 
 const SETTINGS_DEFAULTS = {
   mode: MODE_STANDARD,
@@ -23,6 +27,7 @@ const SETTINGS_DEFAULTS = {
   paused: false,
   cookieHandlingEnabled: true,
   xAdsBlockingEnabled: true,
+  xCompatibilityModeEnabled: true,
   optionalRulesets: {
     annoyances: false,
     regional: false
@@ -222,6 +227,10 @@ function sanitizeXAdsBlockingEnabled(input) {
   return input !== false;
 }
 
+function sanitizeXCompatibilityModeEnabled(input) {
+  return input !== false;
+}
+
 function countersAvailable() {
   return Boolean(chrome.declarativeNetRequest && chrome.declarativeNetRequest.onRuleMatchedDebug);
 }
@@ -243,6 +252,7 @@ async function getSettings() {
     paused: sanitizePaused(stored.paused),
     cookieHandlingEnabled: sanitizeCookieHandlingEnabled(stored.cookieHandlingEnabled),
     xAdsBlockingEnabled: sanitizeXAdsBlockingEnabled(stored.xAdsBlockingEnabled),
+    xCompatibilityModeEnabled: sanitizeXCompatibilityModeEnabled(stored.xCompatibilityModeEnabled),
     optionalRulesets: sanitizeOptionalRulesets(stored.optionalRulesets)
   };
 }
@@ -348,6 +358,29 @@ function buildAllowlistRules(domains) {
   return rules;
 }
 
+function buildXCompatibilityRules() {
+  return [
+    {
+      id: X_COMPAT_MAIN_RULE_ID,
+      priority: 10001,
+      action: { type: "allow" },
+      condition: {
+        requestDomains: X_COMPAT_DOMAINS,
+        resourceTypes: ["main_frame"]
+      }
+    },
+    {
+      id: X_COMPAT_SUBRESOURCE_RULE_ID,
+      priority: 10001,
+      action: { type: "allowAllRequests" },
+      condition: {
+        initiatorDomains: X_COMPAT_DOMAINS,
+        resourceTypes: SUBRESOURCE_TYPES
+      }
+    }
+  ];
+}
+
 async function applyAllowlist(domains) {
   const dynamicRules = await chrome.declarativeNetRequest.getDynamicRules();
   const removeRuleIds = dynamicRules
@@ -360,10 +393,23 @@ async function applyAllowlist(domains) {
   });
 }
 
+async function applyXCompatibilityRules(enabled) {
+  const dynamicRules = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeRuleIds = dynamicRules
+    .map((rule) => rule.id)
+    .filter((id) => X_COMPAT_RULE_IDS.includes(id));
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds,
+    addRules: enabled ? buildXCompatibilityRules() : []
+  });
+}
+
 async function syncFromStorage() {
   const settings = await getSettings();
   await applyPauseState(settings.paused);
   await applyAllowlist(settings.allowlist);
+  await applyXCompatibilityRules(settings.xCompatibilityModeEnabled);
 }
 
 async function initializeDefaults() {
@@ -443,6 +489,7 @@ async function handleGetState(url) {
     optionalRulesets: settings.optionalRulesets,
     cookieHandlingEnabled: settings.cookieHandlingEnabled,
     xAdsBlockingEnabled: settings.xAdsBlockingEnabled,
+    xCompatibilityModeEnabled: settings.xCompatibilityModeEnabled,
     domain,
     siteAllowed: domain ? settings.allowlist.includes(domain) : false,
     allowlistCount: settings.allowlist.length,
@@ -480,6 +527,13 @@ async function handleSetXAdsBlocking(enabled) {
   const xAdsBlockingEnabled = sanitizeXAdsBlockingEnabled(enabled);
   await chrome.storage.local.set({ xAdsBlockingEnabled });
   return { xAdsBlockingEnabled };
+}
+
+async function handleSetXCompatibilityMode(enabled) {
+  const xCompatibilityModeEnabled = sanitizeXCompatibilityModeEnabled(enabled);
+  await chrome.storage.local.set({ xCompatibilityModeEnabled });
+  await applyXCompatibilityRules(xCompatibilityModeEnabled);
+  return { xCompatibilityModeEnabled };
 }
 
 async function handleSetOptionalRuleset(ruleset, enabled) {
@@ -569,7 +623,8 @@ async function handleGetRulesetSettings() {
     paused: settings.paused,
     optionalRulesets: settings.optionalRulesets,
     cookieHandlingEnabled: settings.cookieHandlingEnabled,
-    xAdsBlockingEnabled: settings.xAdsBlockingEnabled
+    xAdsBlockingEnabled: settings.xAdsBlockingEnabled,
+    xCompatibilityModeEnabled: settings.xCompatibilityModeEnabled
   };
 }
 
@@ -633,6 +688,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === "SET_X_ADS_BLOCKING") {
       return { ok: true, ...(await handleSetXAdsBlocking(message.enabled)) };
+    }
+
+    if (message.type === "SET_X_COMPATIBILITY_MODE") {
+      return { ok: true, ...(await handleSetXCompatibilityMode(message.enabled)) };
     }
 
     if (message.type === "SET_OPTIONAL_RULESET") {
