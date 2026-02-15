@@ -1,3 +1,4 @@
+const pausedToggle = document.getElementById("toggle-paused");
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
 const xAdsBlockingToggle = document.getElementById("toggle-x-ads-blocking");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
@@ -69,8 +70,9 @@ function rulesetLabel(rulesetId) {
   }
 }
 
-function applyRulesetUI(optionalRulesets, cookieHandlingEnabled, xAdsBlockingEnabled) {
+function applyRulesetUI(optionalRulesets, paused, cookieHandlingEnabled, xAdsBlockingEnabled) {
   isApplyingRulesetState = true;
+  pausedToggle.checked = paused === true;
   cookieHandlingToggle.checked = cookieHandlingEnabled !== false;
   xAdsBlockingToggle.checked = xAdsBlockingEnabled !== false;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
@@ -90,12 +92,13 @@ async function loadRulesetSettings() {
     annoyances: false,
     regional: false
   };
+  const paused = response.paused === true;
   const cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
   const xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
 
-  applyRulesetUI(optionalRulesets, cookieHandlingEnabled, xAdsBlockingEnabled);
+  applyRulesetUI(optionalRulesets, paused, cookieHandlingEnabled, xAdsBlockingEnabled);
   setRulesetStatus(
-    `Cookie: ${cookieHandlingEnabled ? "on" : "off"} | X ads: ${xAdsBlockingEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
+    `Protection: ${paused ? "paused" : "active"} | Cookie: ${cookieHandlingEnabled ? "on" : "off"} | X ads: ${xAdsBlockingEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
     false
   );
 }
@@ -123,6 +126,20 @@ async function setCookieHandling(enabled) {
 
   if (!response.ok) {
     setRulesetStatus(response.error || "Failed to update cookie handling", true);
+    return;
+  }
+
+  await loadRulesetSettings();
+}
+
+async function setPaused(paused) {
+  const response = await sendMessage({
+    type: "SET_PAUSED",
+    paused
+  });
+
+  if (!response.ok) {
+    setRulesetStatus(response.error || "Failed to update protection pause", true);
     return;
   }
 
@@ -246,6 +263,14 @@ async function loadAllowlist() {
   renderAllowlist(response.allowlist || []);
   setStatus(`Allowlisted sites: ${response.allowlistCount || 0}`, false);
 }
+
+pausedToggle.addEventListener("change", async () => {
+  if (isApplyingRulesetState) {
+    return;
+  }
+
+  await setPaused(pausedToggle.checked);
+});
 
 cookieHandlingToggle.addEventListener("change", async () => {
   if (isApplyingRulesetState) {

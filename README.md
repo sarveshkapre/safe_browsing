@@ -10,6 +10,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 
 - `Standard` mode (default): compact high-impact blocking.
 - `Strict` mode: broader blocking rules for aggressive filtering.
+- Global `Pause protection` switch to temporarily disable blocking.
 - Optional `Annoyances` and `Regional` rulesets (toggle from popup/options).
 - Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
 - X/Twitter feed ad hiding (beta): removes timeline entries with explicit `Ad` header badge.
@@ -91,12 +92,13 @@ safe_browsing/
 
 1. Click the extension icon.
 2. Select `Standard` or `Strict`.
-3. Toggle `Cookie handling` on/off if needed.
-4. Toggle `X ads (beta)` to hide X/Twitter timeline ads with explicit `Ad` labels.
-5. Toggle optional `Annoyances` / `Regional` filters if needed.
-6. Use `Allow ads on this site` for the current domain.
-7. Click `View blocked activity` to inspect blocked requests.
-8. Click `Manage allowlist` to remove/clear allowlisted domains.
+3. Use `Pause protection` for temporary pass-through if something breaks.
+4. Toggle `Cookie handling` on/off if needed.
+5. Toggle `X ads (beta)` to hide X/Twitter timeline ads with explicit `Ad` labels.
+6. Toggle optional `Annoyances` / `Regional` filters if needed.
+7. Use `Allow ads on this site` for the current domain.
+8. Click `View blocked activity` to inspect blocked requests.
+9. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 

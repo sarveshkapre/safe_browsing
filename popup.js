@@ -1,5 +1,6 @@
 const modeSelect = document.getElementById("mode");
 const toggleSiteButton = document.getElementById("toggle-site");
+const pausedToggle = document.getElementById("toggle-paused");
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
 const xAdsBlockingToggle = document.getElementById("toggle-x-ads-blocking");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
@@ -18,6 +19,7 @@ let sessionBlocked = 0;
 let todayBlocked = 0;
 let blockedActivityCount = 0;
 let countersAvailable = false;
+let paused = false;
 let cookieHandlingEnabled = true;
 let xAdsBlockingEnabled = true;
 let optionalRulesets = {
@@ -47,6 +49,7 @@ function render() {
   isApplyingState = true;
 
   modeSelect.value = modeSelect.value || "standard";
+  pausedToggle.checked = paused;
   cookieHandlingToggle.checked = cookieHandlingEnabled;
   xAdsBlockingToggle.checked = xAdsBlockingEnabled;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
@@ -71,9 +74,10 @@ function render() {
     ? `Blocked today: ${todayBlocked}`
     : "Blocked today: unavailable";
   const activityLine = `Blocked activity entries: ${blockedActivityCount}`;
+  const pausedLine = `Protection: ${paused ? "paused" : "active"}`;
 
   meta.classList.remove("error");
-  meta.textContent = `${siteLine}\n${allowlistLine}\n${sessionLine}\n${todayLine}\n${activityLine}`;
+  meta.textContent = `${pausedLine}\n${siteLine}\n${allowlistLine}\n${sessionLine}\n${todayLine}\n${activityLine}`;
 
   isApplyingState = false;
 }
@@ -100,6 +104,7 @@ async function loadState() {
   todayBlocked = response.todayBlocked || 0;
   blockedActivityCount = response.blockedActivityCount || 0;
   countersAvailable = Boolean(response.countersAvailable);
+  paused = response.paused === true;
   cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
   xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
   optionalRulesets = response.optionalRulesets || optionalRulesets;
@@ -121,6 +126,21 @@ async function setOptionalRuleset(ruleset, enabled) {
 
   optionalRulesets = response.optionalRulesets || optionalRulesets;
   render();
+}
+
+async function setPaused(nextPaused) {
+  const response = await sendMessage({
+    type: "SET_PAUSED",
+    paused: nextPaused
+  });
+
+  if (!response.ok) {
+    renderError(response.error);
+    return;
+  }
+
+  paused = response.paused === true;
+  await loadState();
 }
 
 async function setCookieHandling(enabled) {
@@ -187,6 +207,14 @@ toggleSiteButton.addEventListener("click", async () => {
   allowlistCount = response.allowlistCount;
   currentDomain = response.domain || currentDomain;
   render();
+});
+
+pausedToggle.addEventListener("change", async () => {
+  if (isApplyingState) {
+    return;
+  }
+
+  await setPaused(pausedToggle.checked);
 });
 
 cookieHandlingToggle.addEventListener("change", async () => {

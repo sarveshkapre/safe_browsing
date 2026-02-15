@@ -20,6 +20,7 @@ const MAX_ALLOWLIST_DOMAINS = 2000;
 const SETTINGS_DEFAULTS = {
   mode: MODE_STANDARD,
   allowlist: [],
+  paused: false,
   cookieHandlingEnabled: true,
   xAdsBlockingEnabled: true,
   optionalRulesets: {
@@ -213,6 +214,10 @@ function sanitizeCookieHandlingEnabled(input) {
   return input !== false;
 }
 
+function sanitizePaused(input) {
+  return input === true;
+}
+
 function sanitizeXAdsBlockingEnabled(input) {
   return input !== false;
 }
@@ -235,6 +240,7 @@ async function getSettings() {
   return {
     mode: stored.mode === MODE_STRICT ? MODE_STRICT : MODE_STANDARD,
     allowlist: sanitizeAllowlist(stored.allowlist),
+    paused: sanitizePaused(stored.paused),
     cookieHandlingEnabled: sanitizeCookieHandlingEnabled(stored.cookieHandlingEnabled),
     xAdsBlockingEnabled: sanitizeXAdsBlockingEnabled(stored.xAdsBlockingEnabled),
     optionalRulesets: sanitizeOptionalRulesets(stored.optionalRulesets)
@@ -269,6 +275,25 @@ async function applyMode(mode) {
     enableRulesetIds,
     disableRulesetIds
   });
+}
+
+async function applyPauseState(paused) {
+  if (paused) {
+    await chrome.declarativeNetRequest.updateEnabledRulesets({
+      enableRulesetIds: [],
+      disableRulesetIds: [
+        STANDARD_RULESET_ID,
+        STRICT_RULESET_ID,
+        ANNOYANCES_RULESET_ID,
+        REGIONAL_RULESET_ID
+      ]
+    });
+    return;
+  }
+
+  const settings = await getSettings();
+  await applyMode(settings.mode);
+  await applyOptionalRulesets(settings.optionalRulesets);
 }
 
 async function applyOptionalRulesets(optionalRulesets) {
@@ -337,8 +362,7 @@ async function applyAllowlist(domains) {
 
 async function syncFromStorage() {
   const settings = await getSettings();
-  await applyMode(settings.mode);
-  await applyOptionalRulesets(settings.optionalRulesets);
+  await applyPauseState(settings.paused);
   await applyAllowlist(settings.allowlist);
 }
 
@@ -415,6 +439,7 @@ async function handleGetState(url) {
 
   return {
     mode: settings.mode,
+    paused: settings.paused,
     optionalRulesets: settings.optionalRulesets,
     cookieHandlingEnabled: settings.cookieHandlingEnabled,
     xAdsBlockingEnabled: settings.xAdsBlockingEnabled,
@@ -430,9 +455,19 @@ async function handleGetState(url) {
 
 async function handleSetMode(mode) {
   const normalizedMode = mode === MODE_STRICT ? MODE_STRICT : MODE_STANDARD;
+  const settings = await getSettings();
   await chrome.storage.local.set({ mode: normalizedMode });
-  await applyMode(normalizedMode);
+  if (!settings.paused) {
+    await applyMode(normalizedMode);
+  }
   return { mode: normalizedMode };
+}
+
+async function handleSetPaused(pausedInput) {
+  const paused = sanitizePaused(pausedInput);
+  await chrome.storage.local.set({ paused });
+  await applyPauseState(paused);
+  return { paused };
 }
 
 async function handleSetCookieHandling(enabled) {
@@ -458,7 +493,14 @@ async function handleSetOptionalRuleset(ruleset, enabled) {
     [ruleset]: enabled === true
   };
 
-  const optionalRulesets = await setOptionalRulesets(next);
+  let optionalRulesets;
+  if (settings.paused) {
+    optionalRulesets = sanitizeOptionalRulesets(next);
+    await chrome.storage.local.set({ optionalRulesets });
+  } else {
+    optionalRulesets = await setOptionalRulesets(next);
+  }
+
   return { optionalRulesets, error: "" };
 }
 
@@ -524,6 +566,7 @@ async function handleGetRulesetSettings() {
   const settings = await getSettings();
   return {
     mode: settings.mode,
+    paused: settings.paused,
     optionalRulesets: settings.optionalRulesets,
     cookieHandlingEnabled: settings.cookieHandlingEnabled,
     xAdsBlockingEnabled: settings.xAdsBlockingEnabled
@@ -578,6 +621,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === "SET_MODE") {
       return { ok: true, ...(await handleSetMode(message.mode)) };
+    }
+
+    if (message.type === "SET_PAUSED") {
+      return { ok: true, ...(await handleSetPaused(message.paused)) };
     }
 
     if (message.type === "SET_COOKIE_HANDLING") {

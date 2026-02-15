@@ -65,12 +65,17 @@
   const seenBanners = new WeakSet();
   const handledClickTargets = new WeakSet();
 
-  let enabled = true;
+  let featureEnabled = true;
+  let paused = false;
   let running = false;
   let scanStartedAt = 0;
   let observer = null;
   let intervalId = null;
   let scanQueued = false;
+
+  function shouldBeEnabled() {
+    return featureEnabled && !paused;
+  }
 
   function normalizeText(input) {
     return String(input || "")
@@ -325,7 +330,7 @@
   }
 
   function shouldContinueScanning() {
-    if (!enabled) {
+    if (!shouldBeEnabled()) {
       return false;
     }
 
@@ -351,7 +356,7 @@
   }
 
   function queueScan() {
-    if (!enabled || scanQueued) {
+    if (!shouldBeEnabled() || scanQueued) {
       return;
     }
 
@@ -363,7 +368,7 @@
   }
 
   function startScanning() {
-    if (!enabled || running) {
+    if (!shouldBeEnabled() || running) {
       return;
     }
 
@@ -387,7 +392,7 @@
   }
 
   function startWhenReady() {
-    if (!enabled) {
+    if (!shouldBeEnabled()) {
       stopScanning();
       return;
     }
@@ -401,9 +406,9 @@
   }
 
   function setEnabled(nextEnabled) {
-    enabled = nextEnabled !== false;
+    featureEnabled = nextEnabled !== false;
 
-    if (!enabled) {
+    if (!shouldBeEnabled()) {
       stopScanning();
       return;
     }
@@ -411,21 +416,40 @@
     startWhenReady();
   }
 
-  chrome.storage.local.get({ cookieHandlingEnabled: true }, (data) => {
+  function setPaused(nextPaused) {
+    paused = nextPaused === true;
+
+    if (!shouldBeEnabled()) {
+      stopScanning();
+      return;
+    }
+
+    startWhenReady();
+  }
+
+  chrome.storage.local.get({ cookieHandlingEnabled: true, paused: false }, (data) => {
     if (chrome.runtime.lastError) {
       setEnabled(true);
+      setPaused(false);
       return;
     }
 
     setEnabled(data.cookieHandlingEnabled !== false);
+    setPaused(data.paused === true);
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "local" || !changes.cookieHandlingEnabled) {
+    if (areaName !== "local") {
       return;
     }
 
-    const nextValue = changes.cookieHandlingEnabled.newValue;
-    setEnabled(nextValue !== false);
+    if (changes.cookieHandlingEnabled) {
+      const nextValue = changes.cookieHandlingEnabled.newValue;
+      setEnabled(nextValue !== false);
+    }
+
+    if (changes.paused) {
+      setPaused(changes.paused.newValue === true);
+    }
   });
 })();

@@ -11,10 +11,15 @@
   const MAX_HORIZONTAL_GAP_TO_CARET = 220;
   const PERIODIC_SCAN_MS = 1700;
 
-  let enabled = true;
+  let featureEnabled = true;
+  let paused = false;
   let observer = null;
   let intervalId = null;
   let scanQueued = false;
+
+  function shouldBeEnabled() {
+    return featureEnabled && !paused;
+  }
 
   function normalizeText(input) {
     return String(input || "")
@@ -185,7 +190,7 @@
   }
 
   function scanNow() {
-    if (!enabled) {
+    if (!shouldBeEnabled()) {
       return;
     }
 
@@ -205,7 +210,7 @@
   }
 
   function queueScan() {
-    if (!enabled || scanQueued) {
+    if (!shouldBeEnabled() || scanQueued) {
       return;
     }
 
@@ -217,7 +222,7 @@
   }
 
   function startScanning() {
-    if (!enabled) {
+    if (!shouldBeEnabled()) {
       return;
     }
 
@@ -252,7 +257,7 @@
   }
 
   function startWhenReady() {
-    if (!enabled) {
+    if (!shouldBeEnabled()) {
       return;
     }
 
@@ -265,9 +270,9 @@
   }
 
   function setEnabled(nextEnabled) {
-    enabled = nextEnabled !== false;
+    featureEnabled = nextEnabled !== false;
 
-    if (!enabled) {
+    if (!shouldBeEnabled()) {
       stopScanning();
       unhideAll();
       removeHideStyle();
@@ -277,20 +282,41 @@
     startWhenReady();
   }
 
-  chrome.storage.local.get({ xAdsBlockingEnabled: true }, (data) => {
+  function setPaused(nextPaused) {
+    paused = nextPaused === true;
+
+    if (!shouldBeEnabled()) {
+      stopScanning();
+      unhideAll();
+      removeHideStyle();
+      return;
+    }
+
+    startWhenReady();
+  }
+
+  chrome.storage.local.get({ xAdsBlockingEnabled: true, paused: false }, (data) => {
     if (chrome.runtime.lastError) {
       setEnabled(true);
+      setPaused(false);
       return;
     }
 
     setEnabled(data.xAdsBlockingEnabled !== false);
+    setPaused(data.paused === true);
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "local" || !changes.xAdsBlockingEnabled) {
+    if (areaName !== "local") {
       return;
     }
 
-    setEnabled(changes.xAdsBlockingEnabled.newValue !== false);
+    if (changes.xAdsBlockingEnabled) {
+      setEnabled(changes.xAdsBlockingEnabled.newValue !== false);
+    }
+
+    if (changes.paused) {
+      setPaused(changes.paused.newValue === true);
+    }
   });
 })();
