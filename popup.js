@@ -8,6 +8,7 @@ const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const manageAllowlistButton = document.getElementById("manage-allowlist");
 const refreshButton = document.getElementById("refresh");
+const viewDetailedStatsButton = document.getElementById("view-detailed-stats");
 const meta = document.getElementById("meta");
 
 let isApplyingState = false;
@@ -19,6 +20,11 @@ let paused = false;
 let cookieHandlingEnabled = true;
 let xAdsBlockingEnabled = true;
 let xCompatibilityModeEnabled = true;
+let sessionBlocked = 0;
+let todayBlocked = 0;
+let sessionXAdsHidden = 0;
+let todayXAdsHidden = 0;
+let blockedActivityCount = 0;
 let optionalRulesets = {
   annoyances: false,
   regional: false
@@ -65,11 +71,14 @@ function render() {
 
   const siteLine = currentDomain ? `Site: ${currentDomain}` : "Site: unavailable";
   const allowlistLine = `Allowlisted sites: ${allowlistCount}`;
+  const blockedLine = `Network blocked: ${todayBlocked} today (${sessionBlocked} session)`;
+  const xBlockedLine = `X ads hidden: ${todayXAdsHidden} today (${sessionXAdsHidden} session)`;
+  const detailLine = `Detailed entries: ${blockedActivityCount}`;
   const pausedLine = `Protection: ${paused ? "paused" : "active"}`;
   const xCompatLine = `X compatibility: ${xCompatibilityModeEnabled ? "on" : "off"}`;
 
   meta.classList.remove("error");
-  meta.textContent = `${pausedLine}\n${xCompatLine}\n${siteLine}\n${allowlistLine}`;
+  meta.textContent = `${pausedLine}\n${xCompatLine}\n${siteLine}\n${allowlistLine}\n${blockedLine}\n${xBlockedLine}\n${detailLine}`;
 
   isApplyingState = false;
 }
@@ -96,6 +105,11 @@ async function loadState() {
   cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
   xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
   xCompatibilityModeEnabled = response.xCompatibilityModeEnabled !== false;
+  sessionBlocked = Number.isFinite(response.sessionBlocked) ? response.sessionBlocked : 0;
+  todayBlocked = Number.isFinite(response.todayBlocked) ? response.todayBlocked : 0;
+  sessionXAdsHidden = Number.isFinite(response.sessionXAdsHidden) ? response.sessionXAdsHidden : 0;
+  todayXAdsHidden = Number.isFinite(response.todayXAdsHidden) ? response.todayXAdsHidden : 0;
+  blockedActivityCount = Number.isFinite(response.blockedActivityCount) ? response.blockedActivityCount : 0;
   optionalRulesets = response.optionalRulesets || optionalRulesets;
 
   render();
@@ -267,6 +281,10 @@ manageAllowlistButton.addEventListener("click", () => {
 
 refreshButton.addEventListener("click", async () => {
   await loadState();
+});
+
+viewDetailedStatsButton.addEventListener("click", () => {
+  chrome.runtime.openOptionsPage();
 });
 
 loadState().catch((error) => renderError(String(error)));

@@ -189,6 +189,46 @@
     return true;
   }
 
+  function normalizeUrl(input) {
+    if (!input || typeof input !== "string") {
+      return "";
+    }
+
+    try {
+      return new URL(input, window.location.origin).toString();
+    } catch {
+      return "";
+    }
+  }
+
+  function extractAdUrl(article) {
+    if (!(article instanceof Element)) {
+      return "";
+    }
+
+    const candidates = article.querySelectorAll("a[href*='/status/'], a[href*='t.co/']");
+    for (const anchor of candidates) {
+      const href = normalizeUrl(anchor.getAttribute("href") || anchor.href || "");
+      if (href) {
+        return href;
+      }
+    }
+
+    return "";
+  }
+
+  function reportHiddenAd(article) {
+    try {
+      chrome.runtime.sendMessage({
+        type: "REPORT_X_AD_HIDDEN",
+        pageUrl: window.location.href,
+        adUrl: extractAdUrl(article)
+      });
+    } catch {
+      // best-effort telemetry to local background state
+    }
+  }
+
   function scanNow() {
     if (!shouldBeEnabled()) {
       return;
@@ -204,7 +244,9 @@
 
       const badge = findHeaderAdBadge(article);
       if (badge) {
-        hideAdArticle(article);
+        if (hideAdArticle(article)) {
+          reportHiddenAd(article);
+        }
       }
     }
   }

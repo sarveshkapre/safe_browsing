@@ -69,6 +69,18 @@
         align-items: center;
         gap: 8px;
       }
+      .activity-item {
+        display: block;
+      }
+      .activity-main {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .activity-meta {
+        font-size: 12px;
+        color: #5d6b7f;
+        word-break: break-all;
+      }
       .domain {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         word-break: break-all;
@@ -137,6 +149,24 @@
 
         <div id="status" class="sub">Loading...</div>
         <ul id="allowlist"></ul>
+      </div>
+
+      <div class="card">
+        <h1>Detailed Blocking Stats</h1>
+        <p class="sub">Local-only entries with blocked URL/domain and source.</p>
+
+        <div class="toolbar">
+          <button id="activity-refresh" class="primary">Refresh</button>
+          <button id="activity-clear">Clear stats</button>
+        </div>
+
+        <div id="activity-status" class="sub">Loading...</div>
+        <h1>Top Domains</h1>
+        <ul id="activity-top-domains"></ul>
+        <h1>Top URLs</h1>
+        <ul id="activity-top-urls"></ul>
+        <h1>Recent Entries</h1>
+        <ul id="blocked-activity"></ul>
       </div>
     </main>
 

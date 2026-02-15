@@ -10,6 +10,12 @@ const refreshButton = document.getElementById("refresh");
 const clearAllButton = document.getElementById("clear-all");
 const status = document.getElementById("status");
 const allowlistContainer = document.getElementById("allowlist");
+const activityRefreshButton = document.getElementById("activity-refresh");
+const activityClearButton = document.getElementById("activity-clear");
+const activityStatus = document.getElementById("activity-status");
+const topDomainsContainer = document.getElementById("activity-top-domains");
+const topUrlsContainer = document.getElementById("activity-top-urls");
+const blockedActivityContainer = document.getElementById("blocked-activity");
 
 let isApplyingRulesetState = false;
 
@@ -33,6 +39,23 @@ function setStatus(text, isError) {
 function setRulesetStatus(text, isError) {
   rulesetStatus.textContent = text;
   rulesetStatus.className = isError ? "sub error" : "sub";
+}
+
+function setActivityStatus(text, isError) {
+  activityStatus.textContent = text;
+  activityStatus.className = isError ? "sub error" : "sub";
+}
+
+function formatTime(timestamp) {
+  if (!Number.isFinite(timestamp)) {
+    return "Unknown time";
+  }
+
+  try {
+    return new Date(timestamp).toLocaleString();
+  } catch {
+    return "Unknown time";
+  }
 }
 
 function applyRulesetUI(
@@ -198,6 +221,96 @@ function renderAllowlist(domains) {
   });
 }
 
+function renderTopCounts(container, rows, emptyText) {
+  container.innerHTML = "";
+  if (!rows.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = emptyText;
+    container.appendChild(empty);
+    return;
+  }
+
+  rows.forEach((item) => {
+    const row = document.createElement("li");
+    const value = document.createElement("span");
+    value.className = "domain";
+    value.textContent = item.value || "unknown";
+
+    const count = document.createElement("span");
+    count.textContent = String(item.count || 0);
+
+    row.appendChild(value);
+    row.appendChild(count);
+    container.appendChild(row);
+  });
+}
+
+function renderBlockedActivity(entries) {
+  blockedActivityContainer.innerHTML = "";
+
+  if (!entries.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "No blocked activity yet.";
+    blockedActivityContainer.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "activity-item";
+
+    const blockedDomain = entry.blockedDomain || "unknown-domain";
+    const main = document.createElement("div");
+    main.className = "activity-main";
+    main.textContent = `${blockedDomain} (${entry.source || "network"})`;
+
+    const pageDomain = entry.pageDomain || "unknown-site";
+    const requestUrl = entry.requestUrl || "n/a";
+    const resourceType = entry.resourceType || "other";
+    const rulesetId = entry.rulesetId || "unknown";
+    const time = formatTime(Number(entry.timestamp));
+
+    const meta = document.createElement("div");
+    meta.className = "activity-meta";
+    meta.textContent = `site: ${pageDomain} | type: ${resourceType} | ruleset: ${rulesetId} | url: ${requestUrl} | ${time}`;
+
+    item.appendChild(main);
+    item.appendChild(meta);
+    blockedActivityContainer.appendChild(item);
+  });
+}
+
+async function loadBlockedActivity() {
+  const response = await sendMessage({ type: "GET_BLOCKED_ACTIVITY", limit: 200 });
+
+  if (!response.ok) {
+    setActivityStatus(response.error || "Failed to load detailed stats", true);
+    return;
+  }
+
+  const entries = Array.isArray(response.blockedActivity) ? response.blockedActivity : [];
+  const topDomains = Array.isArray(response.topDomains) ? response.topDomains : [];
+  const topUrls = Array.isArray(response.topUrls) ? response.topUrls : [];
+  renderTopCounts(topDomainsContainer, topDomains, "No domains yet.");
+  renderTopCounts(topUrlsContainer, topUrls, "No URLs yet.");
+  renderBlockedActivity(entries);
+
+  const blockedCount = Number.isFinite(response.blockedActivityCount) ? response.blockedActivityCount : 0;
+  const todayBlocked = Number.isFinite(response.todayBlocked) ? response.todayBlocked : 0;
+  const todayXAdsHidden = Number.isFinite(response.todayXAdsHidden) ? response.todayXAdsHidden : 0;
+  const sessionBlocked = Number.isFinite(response.sessionBlocked) ? response.sessionBlocked : 0;
+  const sessionXAdsHidden = Number.isFinite(response.sessionXAdsHidden)
+    ? response.sessionXAdsHidden
+    : 0;
+
+  setActivityStatus(
+    `Entries: ${blockedCount} | Network blocked (today/session): ${todayBlocked}/${sessionBlocked} | X ads hidden (today/session): ${todayXAdsHidden}/${sessionXAdsHidden}`,
+    false
+  );
+}
+
 async function loadAllowlist() {
   const response = await sendMessage({ type: "GET_ALLOWLIST" });
 
@@ -273,7 +386,23 @@ clearAllButton.addEventListener("click", async () => {
   await loadAllowlist();
 });
 
-Promise.all([loadRulesetSettings(), loadAllowlist()]).catch((error) => {
+activityRefreshButton.addEventListener("click", () => {
+  loadBlockedActivity().catch((error) => setActivityStatus(String(error), true));
+});
+
+activityClearButton.addEventListener("click", async () => {
+  const response = await sendMessage({ type: "CLEAR_BLOCKED_ACTIVITY" });
+
+  if (!response.ok) {
+    setActivityStatus(response.error || "Failed to clear stats", true);
+    return;
+  }
+
+  await loadBlockedActivity();
+});
+
+Promise.all([loadRulesetSettings(), loadAllowlist(), loadBlockedActivity()]).catch((error) => {
   setStatus(String(error), true);
   setRulesetStatus(String(error), true);
+  setActivityStatus(String(error), true);
 });

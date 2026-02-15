@@ -34,7 +34,29 @@ const SETTINGS_DEFAULTS = {
   }
 };
 
+const RULESET_IDS_FOR_STATS = new Set([
+  STANDARD_RULESET_ID,
+  STRICT_RULESET_ID,
+  ANNOYANCES_RULESET_ID,
+  REGIONAL_RULESET_ID
+]);
+
+const BLOCKED_ACTIVITY_MAX = 1000;
+const STATS_DEFAULTS = {
+  statsDayKey: "",
+  todayBlocked: 0,
+  todayXAdsHidden: 0,
+  blockedActivity: []
+};
+
 let dynamicRulesUpdateQueue = Promise.resolve();
+let statsDayKey = "";
+let todayBlocked = 0;
+let todayXAdsHidden = 0;
+let sessionBlocked = 0;
+let sessionXAdsHidden = 0;
+let blockedActivity = [];
+let persistStatsTimer = null;
 
 function runDynamicRulesUpdate(task) {
   const run = dynamicRulesUpdateQueue.then(() => task());
@@ -66,6 +88,141 @@ function normalizeDomain(input) {
   } catch {
     return "";
   }
+}
+
+function normalizeUrl(input) {
+  if (!input || typeof input !== "string") {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(input);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+    return parsed.toString().slice(0, 1200);
+  } catch {
+    return "";
+  }
+}
+
+function domainFromUrl(url) {
+  if (!url || typeof url !== "string") {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    if (!hostname) {
+      return "";
+    }
+    return hostname.startsWith("www.") ? hostname.slice(4) : hostname;
+  } catch {
+    return "";
+  }
+}
+
+function getDayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function sanitizeBlockedActivity(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  const out = [];
+  for (const entry of input) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const timestamp = Number(entry.timestamp);
+    const source = entry.source === "x_dom" ? "x_dom" : "network";
+    const blockedDomain = normalizeDomain(entry.blockedDomain || "");
+    const pageDomain = normalizeDomain(entry.pageDomain || "");
+    const requestUrl = normalizeUrl(entry.requestUrl || "");
+    const rulesetId = typeof entry.rulesetId === "string" ? entry.rulesetId.slice(0, 80) : "";
+    const resourceType = typeof entry.resourceType === "string" ? entry.resourceType.slice(0, 40) : "";
+
+    if (!Number.isFinite(timestamp) || (!blockedDomain && !requestUrl && !pageDomain)) {
+      continue;
+    }
+
+    out.push({
+      timestamp,
+      source,
+      blockedDomain,
+      pageDomain,
+      requestUrl,
+      rulesetId,
+      resourceType
+    });
+
+    if (out.length >= BLOCKED_ACTIVITY_MAX) {
+      break;
+    }
+  }
+
+  out.sort((left, right) => right.timestamp - left.timestamp);
+  return out.slice(0, BLOCKED_ACTIVITY_MAX);
+}
+
+function maybeResetDailyStats() {
+  const current = getDayKey();
+  if (statsDayKey === current) {
+    return;
+  }
+
+  statsDayKey = current;
+  todayBlocked = 0;
+  todayXAdsHidden = 0;
+  scheduleStatsPersist();
+}
+
+function scheduleStatsPersist() {
+  if (persistStatsTimer) {
+    clearTimeout(persistStatsTimer);
+  }
+
+  persistStatsTimer = setTimeout(() => {
+    persistStatsTimer = null;
+    chrome.storage.local
+      .set({
+        statsDayKey,
+        todayBlocked,
+        todayXAdsHidden,
+        blockedActivity
+      })
+      .catch((error) => console.error("Failed to persist stats:", error));
+  }, 500);
+}
+
+function recordActivityEntry(entry) {
+  blockedActivity.unshift(entry);
+  if (blockedActivity.length > BLOCKED_ACTIVITY_MAX) {
+    blockedActivity = blockedActivity.slice(0, BLOCKED_ACTIVITY_MAX);
+  }
+  scheduleStatsPersist();
+}
+
+function incrementNetworkBlocked(entry) {
+  maybeResetDailyStats();
+  todayBlocked += 1;
+  sessionBlocked += 1;
+  recordActivityEntry(entry);
+}
+
+function incrementXAdsHidden(entry) {
+  maybeResetDailyStats();
+  todayXAdsHidden += 1;
+  sessionXAdsHidden += 1;
+  recordActivityEntry(entry);
 }
 
 function sanitizeAllowlist(input) {
@@ -289,13 +446,133 @@ async function syncFromStorage() {
 
 async function initializeDefaults() {
   const settings = await getSettings();
+  const storedStats = await chrome.storage.local.get(STATS_DEFAULTS);
+
+  statsDayKey = typeof storedStats.statsDayKey === "string" ? storedStats.statsDayKey : "";
+  todayBlocked = Number.isFinite(storedStats.todayBlocked) ? storedStats.todayBlocked : 0;
+  todayXAdsHidden = Number.isFinite(storedStats.todayXAdsHidden) ? storedStats.todayXAdsHidden : 0;
+  blockedActivity = sanitizeBlockedActivity(storedStats.blockedActivity);
+  maybeResetDailyStats();
+
   await chrome.storage.local.set(settings);
-  await chrome.storage.local.remove(["counterDayKey", "todayBlocked", "blockedActivity"]);
+  await chrome.storage.local.set({
+    statsDayKey,
+    todayBlocked,
+    todayXAdsHidden,
+    blockedActivity
+  });
+  await chrome.storage.local.remove(["counterDayKey"]);
+}
+
+function collectTopCounts(items, limit = 8) {
+  const map = new Map();
+
+  for (const item of items) {
+    const key = item || "";
+    if (!key) {
+      continue;
+    }
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+
+  return Array.from(map.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, limit)
+    .map(([value, count]) => ({ value, count }));
+}
+
+function buildStatsSummary() {
+  return {
+    sessionBlocked,
+    todayBlocked,
+    sessionXAdsHidden,
+    todayXAdsHidden,
+    topDomains: collectTopCounts(blockedActivity.map((entry) => entry.blockedDomain || entry.pageDomain)),
+    topUrls: collectTopCounts(blockedActivity.map((entry) => entry.requestUrl), 12)
+  };
+}
+
+function handleRuleMatchedDebug(info) {
+  const rule = info && info.rule ? info.rule : {};
+  const request = info && info.request ? info.request : {};
+  const rulesetId = typeof rule.rulesetId === "string" ? rule.rulesetId : "";
+  if (!RULESET_IDS_FOR_STATS.has(rulesetId)) {
+    return;
+  }
+
+  const requestUrl = normalizeUrl(request.url || "");
+  const blockedDomain = domainFromUrl(requestUrl);
+  const pageUrl = normalizeUrl(request.initiator || request.documentUrl || "");
+  const pageDomain = domainFromUrl(pageUrl);
+  const resourceType = typeof request.type === "string" ? request.type : "";
+
+  incrementNetworkBlocked({
+    timestamp: Date.now(),
+    source: "network",
+    blockedDomain,
+    pageDomain,
+    requestUrl,
+    rulesetId,
+    resourceType
+  });
+}
+
+async function handleReportXAdHidden(payload) {
+  const pageUrl = normalizeUrl(payload && payload.pageUrl ? payload.pageUrl : "");
+  const adUrl = normalizeUrl(payload && payload.adUrl ? payload.adUrl : "");
+  const pageDomain = domainFromUrl(pageUrl);
+  const blockedDomain = domainFromUrl(adUrl) || pageDomain;
+
+  incrementXAdsHidden({
+    timestamp: Date.now(),
+    source: "x_dom",
+    blockedDomain,
+    pageDomain,
+    requestUrl: adUrl || pageUrl,
+    rulesetId: "x_dom_ads",
+    resourceType: "dom"
+  });
+}
+
+async function handleGetBlockedActivity(limitInput) {
+  maybeResetDailyStats();
+  const limit = Number(limitInput);
+  const normalizedLimit = Number.isFinite(limit)
+    ? Math.max(1, Math.min(BLOCKED_ACTIVITY_MAX, Math.floor(limit)))
+    : 200;
+
+  return {
+    blockedActivity: blockedActivity.slice(0, normalizedLimit),
+    blockedActivityCount: blockedActivity.length,
+    ...buildStatsSummary()
+  };
+}
+
+async function handleClearBlockedActivity() {
+  blockedActivity = [];
+  sessionBlocked = 0;
+  sessionXAdsHidden = 0;
+  maybeResetDailyStats();
+  todayBlocked = 0;
+  todayXAdsHidden = 0;
+  await chrome.storage.local.set({
+    statsDayKey,
+    todayBlocked,
+    todayXAdsHidden,
+    blockedActivity
+  });
+  return {
+    blockedActivity: [],
+    blockedActivityCount: 0,
+    ...buildStatsSummary()
+  };
 }
 
 async function handleGetState(url) {
+  maybeResetDailyStats();
   const settings = await getSettings();
   const domain = normalizeDomain(url || "");
+  const summary = buildStatsSummary();
 
   return {
     mode: settings.mode,
@@ -306,7 +583,12 @@ async function handleGetState(url) {
     xCompatibilityModeEnabled: settings.xCompatibilityModeEnabled,
     domain,
     siteAllowed: domain ? settings.allowlist.includes(domain) : false,
-    allowlistCount: settings.allowlist.length
+    allowlistCount: settings.allowlist.length,
+    sessionBlocked: summary.sessionBlocked,
+    todayBlocked: summary.todayBlocked,
+    sessionXAdsHidden: summary.sessionXAdsHidden,
+    todayXAdsHidden: summary.todayXAdsHidden,
+    blockedActivityCount: blockedActivity.length
   };
 }
 
@@ -445,6 +727,10 @@ chrome.runtime.onStartup.addListener(() => {
     .catch((error) => console.error("Startup sync failed:", error));
 });
 
+if (chrome.declarativeNetRequest && chrome.declarativeNetRequest.onRuleMatchedDebug) {
+  chrome.declarativeNetRequest.onRuleMatchedDebug.addListener(handleRuleMatchedDebug);
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const run = async () => {
     if (!message || typeof message !== "object") {
@@ -487,6 +773,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === "GET_ALLOWLIST") {
       return { ok: true, ...(await handleGetAllowlist()) };
+    }
+
+    if (message.type === "GET_BLOCKED_ACTIVITY") {
+      return { ok: true, ...(await handleGetBlockedActivity(message.limit)) };
+    }
+
+    if (message.type === "CLEAR_BLOCKED_ACTIVITY") {
+      return { ok: true, ...(await handleClearBlockedActivity()) };
+    }
+
+    if (message.type === "REPORT_X_AD_HIDDEN") {
+      await handleReportXAdHidden(message);
+      return { ok: true };
     }
 
     if (message.type === "GET_RULESET_SETTINGS") {
