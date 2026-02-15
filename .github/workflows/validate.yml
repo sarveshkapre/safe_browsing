@@ -23,4 +23,4 @@ jobs:
         run: npm run validate
 
       - name: Rule quality tests
-        run: npm run test:quality
+        run: npm test

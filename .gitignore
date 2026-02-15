@@ -3,6 +3,7 @@
 
 # Build artifacts
 dist/
+generated/
 *.zip
 
 # Logs

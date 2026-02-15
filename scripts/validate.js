@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, "..");
 
 const jsonFiles = [
   "manifest.json",
+  "rules_config.json",
   "rules_standard.json",
   "rules_strict.json",
   "package.json"
@@ -17,16 +18,24 @@ const jsFiles = [
   "background.js",
   "popup.js",
   "options.js",
+  "scripts/compile_rules.js",
+  "scripts/lib/rules_compiler.js",
   "scripts/update_strict_rules.js",
   "scripts/validate.js",
-  "tests/rule-quality.test.js"
+  "tests/rule-quality.test.js",
+  "tests/rules-compiler.test.js"
 ];
 
 const mustExist = [
   "README.md",
   "CONTRIBUTING.md",
   "tests/rule-quality.test.js",
+  "tests/rules-compiler.test.js",
+  "rules_config.json",
+  "standard_sources.txt",
   "strict_sources.txt",
+  "annoyances_sources.txt",
+  "regional_sources.txt",
   ".github/workflows/validate.yml",
   "scripts/package_extension.sh"
 ];

@@ -1,0 +1,181 @@
+{
+  "globalExcludeDomains": [
+    "example.com",
+    "example.net",
+    "example.org",
+    "localhost",
+    "google.com",
+    "github.com",
+    "openai.com",
+    "wikipedia.org",
+    "mozilla.org",
+    "apple.com",
+    "microsoft.com",
+    "amazon.com",
+    "reddit.com",
+    "youtube.com"
+  ],
+  "reportFile": "generated/rules_compile_report.json",
+  "shardOutputDir": "generated/shards",
+  "profiles": {
+    "standard": {
+      "enabled": true,
+      "sourcesFile": "standard_sources.txt",
+      "outputFile": "rules_standard.json",
+      "maxRules": 120,
+      "startId": 1,
+      "shardSize": 40,
+      "resourceTypes": [
+        "script",
+        "image",
+        "sub_frame",
+        "xmlhttprequest",
+        "media",
+        "ping",
+        "font",
+        "stylesheet"
+      ],
+      "pinnedDomains": [
+        "doubleclick.net",
+        "googleadservices.com",
+        "googlesyndication.com",
+        "adnxs.com",
+        "adsrvr.org",
+        "taboola.com",
+        "outbrain.com",
+        "criteo.com",
+        "pubmatic.com",
+        "rubiconproject.com",
+        "openx.net",
+        "casalemedia.com",
+        "quantserve.com",
+        "scorecardresearch.com",
+        "advertising.com",
+        "moatads.com",
+        "ads.yahoo.com",
+        "amazon-adsystem.com",
+        "zedo.com",
+        "adservice.google.com"
+      ],
+      "scoring": {
+        "sourceHitWeight": 40,
+        "occurrenceWeight": 3,
+        "occurrenceCap": 12,
+        "keywordWeight": 10,
+        "negativeKeywordWeight": 30,
+        "positiveKeywords": [
+          "ads",
+          "adservice",
+          "adserver",
+          "adn",
+          "doubleclick",
+          "track",
+          "tracker",
+          "tracking",
+          "analytics",
+          "pixel",
+          "beacon",
+          "sponsor",
+          "banner",
+          "affiliate",
+          "retarget",
+          "measurement",
+          "scorecard",
+          "metrics"
+        ],
+        "negativeKeywords": [
+          "github",
+          "google",
+          "wikipedia",
+          "mozilla",
+          "apple",
+          "microsoft",
+          "openai",
+          "amazon",
+          "reddit"
+        ]
+      }
+    },
+    "strict": {
+      "enabled": true,
+      "sourcesFile": "strict_sources.txt",
+      "outputFile": "rules_strict.json",
+      "maxRules": 1500,
+      "startId": 1001,
+      "shardSize": 500,
+      "resourceTypes": [
+        "script",
+        "image",
+        "sub_frame",
+        "xmlhttprequest",
+        "media",
+        "ping",
+        "font",
+        "stylesheet"
+      ],
+      "pinnedDomains": [
+        "doubleclick.net",
+        "googleadservices.com",
+        "googlesyndication.com",
+        "taboola.com",
+        "outbrain.com",
+        "adservice.google.com",
+        "scorecardresearch.com",
+        "quantserve.com"
+      ],
+      "scoring": {
+        "sourceHitWeight": 35,
+        "occurrenceWeight": 2,
+        "occurrenceCap": 10,
+        "keywordWeight": 8,
+        "negativeKeywordWeight": 25,
+        "positiveKeywords": [
+          "ads",
+          "adservice",
+          "adserver",
+          "doubleclick",
+          "track",
+          "tracker",
+          "tracking",
+          "analytics",
+          "pixel",
+          "beacon",
+          "sponsor",
+          "banner",
+          "affiliate",
+          "retarget",
+          "measurement",
+          "scorecard",
+          "metrics"
+        ],
+        "negativeKeywords": [
+          "github",
+          "google",
+          "wikipedia",
+          "mozilla",
+          "apple",
+          "microsoft",
+          "openai",
+          "amazon",
+          "reddit"
+        ]
+      }
+    },
+    "annoyances": {
+      "enabled": false,
+      "sourcesFile": "annoyances_sources.txt",
+      "outputFile": "rules_annoyances.json",
+      "maxRules": 600,
+      "startId": 3001,
+      "shardSize": 200
+    },
+    "regional": {
+      "enabled": false,
+      "sourcesFile": "regional_sources.txt",
+      "outputFile": "rules_regional.json",
+      "maxRules": 600,
+      "startId": 4001,
+      "shardSize": 200
+    }
+  }
+}

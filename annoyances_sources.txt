@@ -1,0 +1,3 @@
+# Optional profile scaffold (disabled by default)
+# Example:
+# https://easylist.to/easylist/fanboy-annoyance.txt

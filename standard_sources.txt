@@ -1,0 +1,3 @@
+# High-signal baseline sources for standard profile
+https://easylist.to/easylist/easylist.txt
+https://easylist.to/easylist/easyprivacy.txt

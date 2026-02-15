@@ -22,7 +22,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - UI:
   - Popup for mode toggle, current-site allowlist, and counters.
   - Options page for full allowlist management.
-- Rule generation: Node script that converts list sources into extension-compatible strict rules.
+- Rule compiler pipeline: `sources -> normalize -> score -> shard -> output`.
 
 ## Repository layout
 
@@ -36,11 +36,18 @@ safe_browsing/
 ├── options.js
 ├── rules_standard.json
 ├── rules_strict.json
+├── rules_config.json
+├── standard_sources.txt
 ├── strict_sources.txt
+├── annoyances_sources.txt
+├── regional_sources.txt
 ├── tests/
-│   └── rule-quality.test.js
+│   ├── rule-quality.test.js
+│   └── rules-compiler.test.js
 ├── scripts/
+│   ├── compile_rules.js
 │   ├── update_strict_rules.js
+│   ├── lib/rules_compiler.js
 │   ├── validate.js
 │   └── package_extension.sh
 ├── .github/
@@ -92,16 +99,40 @@ This verifies:
 - allowlist behavior is preserved in evaluation scenarios
 - safe first-party domains are not blocked
 
-### Refresh strict rules
+### Run compiler tests
+
+```bash
+npm run test:compiler
+```
+
+### Compile rulesets (recommended)
+
+```bash
+npm run rules:compile
+```
+
+This compiles enabled profiles from `rules_config.json`:
+- `standard` -> `rules_standard.json`
+- `strict` -> `rules_strict.json`
+- optional scaffolds for `annoyances` and `regional` (disabled by default)
+
+Compiler stages:
+- source ingestion (`*.sources.txt`)
+- domain normalization and filtering
+- heuristic scoring and ranking
+- profile-level max-rule selection
+- shard report generation in `generated/shards/`
+
+### Refresh strict rules only (backward-compatible)
 
 ```bash
 npm run rules:update
 ```
 
-Defaults:
+Defaults for strict-only run:
 - sources: `strict_sources.txt`
 - output: `rules_strict.json`
-- cap: `1500` strict rules (speed/coverage balance)
+- cap: from `rules_config.json` (`1500`)
 
 Optional custom run:
 
@@ -120,8 +151,8 @@ Output is written to `dist/`.
 ## Release checklist
 
 1. Run `npm run validate`.
-2. Run `npm run test:quality`.
-3. Regenerate strict rules if needed.
+2. Run `npm test`.
+3. Regenerate rules with `npm run rules:compile` if needed.
 4. Update docs/version if behavior changed.
 5. Build zip and sanity-test in a fresh browser profile.
 6. Tag and publish.

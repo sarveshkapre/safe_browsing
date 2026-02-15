@@ -1,0 +1,2 @@
+# Optional profile scaffold (disabled by default)
+# Add region-specific list URLs when needed.

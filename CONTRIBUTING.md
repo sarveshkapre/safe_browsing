@@ -20,6 +20,12 @@ npm run validate
 npm run rules:update
 ```
 
+### Compile all enabled rulesets
+
+```bash
+npm run rules:compile
+```
+
 ### Validate before commit
 
 ```bash
@@ -29,7 +35,7 @@ npm run validate
 ### Run rule quality tests
 
 ```bash
-npm run test:quality
+npm test
 ```
 
 ### Build release zip
