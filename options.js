@@ -1,7 +1,13 @@
+const annoyancesToggle = document.getElementById("toggle-annoyances");
+const regionalToggle = document.getElementById("toggle-regional");
+const rulesetStatus = document.getElementById("ruleset-status");
+
 const refreshButton = document.getElementById("refresh");
 const clearAllButton = document.getElementById("clear-all");
 const status = document.getElementById("status");
 const allowlistContainer = document.getElementById("allowlist");
+
+let isApplyingRulesetState = false;
 
 function sendMessage(message) {
   return new Promise((resolve) => {
@@ -18,6 +24,54 @@ function sendMessage(message) {
 function setStatus(text, isError) {
   status.textContent = text;
   status.className = isError ? "sub error" : "sub";
+}
+
+function setRulesetStatus(text, isError) {
+  rulesetStatus.textContent = text;
+  rulesetStatus.className = isError ? "sub error" : "sub";
+}
+
+function applyRulesetUI(optionalRulesets) {
+  isApplyingRulesetState = true;
+  annoyancesToggle.checked = optionalRulesets.annoyances === true;
+  regionalToggle.checked = optionalRulesets.regional === true;
+  isApplyingRulesetState = false;
+}
+
+async function loadRulesetSettings() {
+  const response = await sendMessage({ type: "GET_RULESET_SETTINGS" });
+
+  if (!response.ok) {
+    setRulesetStatus(response.error || "Failed to load rulesets", true);
+    return;
+  }
+
+  const optionalRulesets = response.optionalRulesets || {
+    annoyances: false,
+    regional: false
+  };
+
+  applyRulesetUI(optionalRulesets);
+  setRulesetStatus(
+    `Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
+    false
+  );
+}
+
+async function setOptionalRuleset(ruleset, enabled) {
+  const response = await sendMessage({
+    type: "SET_OPTIONAL_RULESET",
+    ruleset,
+    enabled
+  });
+
+  if (!response.ok) {
+    setRulesetStatus(response.error || "Failed to update ruleset", true);
+    return;
+  }
+
+  applyRulesetUI(response.optionalRulesets || {});
+  await loadRulesetSettings();
 }
 
 async function removeDomain(domain) {
@@ -77,6 +131,22 @@ async function loadAllowlist() {
   setStatus(`Allowlisted sites: ${response.allowlistCount || 0}`, false);
 }
 
+annoyancesToggle.addEventListener("change", async () => {
+  if (isApplyingRulesetState) {
+    return;
+  }
+
+  await setOptionalRuleset("annoyances", annoyancesToggle.checked);
+});
+
+regionalToggle.addEventListener("change", async () => {
+  if (isApplyingRulesetState) {
+    return;
+  }
+
+  await setOptionalRuleset("regional", regionalToggle.checked);
+});
+
 refreshButton.addEventListener("click", () => {
   loadAllowlist().catch((error) => setStatus(String(error), true));
 });
@@ -92,4 +162,7 @@ clearAllButton.addEventListener("click", async () => {
   await loadAllowlist();
 });
 
-loadAllowlist().catch((error) => setStatus(String(error), true));
+Promise.all([loadRulesetSettings(), loadAllowlist()]).catch((error) => {
+  setStatus(String(error), true);
+  setRulesetStatus(String(error), true);
+});

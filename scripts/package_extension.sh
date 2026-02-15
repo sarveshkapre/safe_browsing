@@ -16,7 +16,7 @@ zip -r "$ZIP_PATH" \
   background.js \
   popup.html popup.js \
   options.html options.js \
-  rules_standard.json rules_strict.json \
+  rules_standard.json rules_strict.json rules_annoyances.json rules_regional.json \
   rules_config.json \
   standard_sources.txt strict_sources.txt annoyances_sources.txt regional_sources.txt \
   scripts/compile_rules.js scripts/update_strict_rules.js scripts/lib/rules_compiler.js \

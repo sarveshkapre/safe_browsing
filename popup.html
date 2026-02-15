@@ -59,6 +59,21 @@
         line-height: 1.45;
         word-break: break-all;
       }
+      .toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border: 1px solid #d7dfeb;
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin: 8px 0;
+        background: #fff;
+        font-size: 12px;
+      }
+      .toggle input {
+        margin: 0;
+      }
       .error {
         color: #b61d1d;
       }
@@ -83,6 +98,18 @@
 
       <div class="row">
         <button id="toggle-site" class="secondary">Allow ads on this site</button>
+      </div>
+
+      <div class="row">
+        <label>Optional filters</label>
+        <div class="toggle">
+          <span>Annoyances</span>
+          <input id="toggle-annoyances" type="checkbox" />
+        </div>
+        <div class="toggle">
+          <span>Regional</span>
+          <input id="toggle-regional" type="checkbox" />
+        </div>
       </div>
 
       <div class="row split">

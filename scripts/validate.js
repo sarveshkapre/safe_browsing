@@ -11,6 +11,8 @@ const jsonFiles = [
   "rules_config.json",
   "rules_standard.json",
   "rules_strict.json",
+  "rules_annoyances.json",
+  "rules_regional.json",
   "package.json"
 ];
 
@@ -36,6 +38,8 @@ const mustExist = [
   "strict_sources.txt",
   "annoyances_sources.txt",
   "regional_sources.txt",
+  "rules_annoyances.json",
+  "rules_regional.json",
   ".github/workflows/validate.yml",
   "scripts/package_extension.sh"
 ];

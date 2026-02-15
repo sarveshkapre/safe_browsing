@@ -1,14 +1,29 @@
 const MODE_STANDARD = "standard";
 const MODE_STRICT = "strict";
+
 const STANDARD_RULESET_ID = "standard_rules";
 const STRICT_RULESET_ID = "strict_rules";
+const ANNOYANCES_RULESET_ID = "annoyances_rules";
+const REGIONAL_RULESET_ID = "regional_rules";
+
+const OPTIONAL_RULESETS = {
+  annoyances: ANNOYANCES_RULESET_ID,
+  regional: REGIONAL_RULESET_ID
+};
+
+const OPTIONAL_RULESET_KEYS = Object.keys(OPTIONAL_RULESETS);
+
 const ALLOWLIST_RULE_BASE = 100000;
 const ALLOWLIST_RULE_MAX = 120000;
 const MAX_ALLOWLIST_DOMAINS = 2000;
 
 const SETTINGS_DEFAULTS = {
   mode: MODE_STANDARD,
-  allowlist: []
+  allowlist: [],
+  optionalRulesets: {
+    annoyances: false,
+    regional: false
+  }
 };
 
 const COUNTERS_DEFAULTS = {
@@ -72,8 +87,7 @@ function normalizeDomain(input) {
       return "";
     }
 
-    const withoutWww = hostname.startsWith("www.") ? hostname.slice(4) : hostname;
-    return withoutWww;
+    return hostname.startsWith("www.") ? hostname.slice(4) : hostname;
   } catch {
     return "";
   }
@@ -104,6 +118,17 @@ function sanitizeAllowlist(input) {
   return out.sort();
 }
 
+function sanitizeOptionalRulesets(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const output = {};
+
+  for (const key of OPTIONAL_RULESET_KEYS) {
+    output[key] = source[key] === true;
+  }
+
+  return output;
+}
+
 function countersAvailable() {
   return Boolean(chrome.declarativeNetRequest && chrome.declarativeNetRequest.onRuleMatchedDebug);
 }
@@ -119,9 +144,11 @@ function maybeResetDailyCounter() {
 
 async function getSettings() {
   const stored = await chrome.storage.local.get(SETTINGS_DEFAULTS);
-  const mode = stored.mode === MODE_STRICT ? MODE_STRICT : MODE_STANDARD;
-  const allowlist = sanitizeAllowlist(stored.allowlist);
-  return { mode, allowlist };
+  return {
+    mode: stored.mode === MODE_STRICT ? MODE_STRICT : MODE_STANDARD,
+    allowlist: sanitizeAllowlist(stored.allowlist),
+    optionalRulesets: sanitizeOptionalRulesets(stored.optionalRulesets)
+  };
 }
 
 async function setAllowlist(domains) {
@@ -129,6 +156,13 @@ async function setAllowlist(domains) {
   await chrome.storage.local.set({ allowlist });
   await applyAllowlist(allowlist);
   return allowlist;
+}
+
+async function setOptionalRulesets(optionalRulesets) {
+  const sanitized = sanitizeOptionalRulesets(optionalRulesets);
+  await chrome.storage.local.set({ optionalRulesets: sanitized });
+  await applyOptionalRulesets(sanitized);
+  return sanitized;
 }
 
 async function applyMode(mode) {
@@ -139,6 +173,26 @@ async function applyMode(mode) {
     enableRulesetIds.push(STRICT_RULESET_ID);
   } else {
     disableRulesetIds.push(STRICT_RULESET_ID);
+  }
+
+  await chrome.declarativeNetRequest.updateEnabledRulesets({
+    enableRulesetIds,
+    disableRulesetIds
+  });
+}
+
+async function applyOptionalRulesets(optionalRulesets) {
+  const sanitized = sanitizeOptionalRulesets(optionalRulesets);
+  const enableRulesetIds = [];
+  const disableRulesetIds = [];
+
+  for (const key of OPTIONAL_RULESET_KEYS) {
+    const rulesetId = OPTIONAL_RULESETS[key];
+    if (sanitized[key]) {
+      enableRulesetIds.push(rulesetId);
+    } else {
+      disableRulesetIds.push(rulesetId);
+    }
   }
 
   await chrome.declarativeNetRequest.updateEnabledRulesets({
@@ -185,17 +239,16 @@ async function applyAllowlist(domains) {
     .map((rule) => rule.id)
     .filter((id) => id >= ALLOWLIST_RULE_BASE && id < ALLOWLIST_RULE_MAX);
 
-  const addRules = buildAllowlistRules(domains);
-
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds,
-    addRules
+    addRules: buildAllowlistRules(domains)
   });
 }
 
 async function syncFromStorage() {
   const settings = await getSettings();
   await applyMode(settings.mode);
+  await applyOptionalRulesets(settings.optionalRulesets);
   await applyAllowlist(settings.allowlist);
 }
 
@@ -223,19 +276,24 @@ function incrementBlockedCounters() {
 
 function shouldCountMatchedRule(info) {
   const rulesetId = info && info.rule ? info.rule.rulesetId : "";
-  return rulesetId === STANDARD_RULESET_ID || rulesetId === STRICT_RULESET_ID;
+  return [
+    STANDARD_RULESET_ID,
+    STRICT_RULESET_ID,
+    ANNOYANCES_RULESET_ID,
+    REGIONAL_RULESET_ID
+  ].includes(rulesetId);
 }
 
 async function handleGetState(url) {
   maybeResetDailyCounter();
   const settings = await getSettings();
   const domain = normalizeDomain(url || "");
-  const siteAllowed = domain ? settings.allowlist.includes(domain) : false;
 
   return {
     mode: settings.mode,
+    optionalRulesets: settings.optionalRulesets,
     domain,
-    siteAllowed,
+    siteAllowed: domain ? settings.allowlist.includes(domain) : false,
     allowlistCount: settings.allowlist.length,
     sessionBlocked,
     todayBlocked,
@@ -248,6 +306,21 @@ async function handleSetMode(mode) {
   await chrome.storage.local.set({ mode: normalizedMode });
   await applyMode(normalizedMode);
   return { mode: normalizedMode };
+}
+
+async function handleSetOptionalRuleset(ruleset, enabled) {
+  if (!OPTIONAL_RULESETS[ruleset]) {
+    return { optionalRulesets: SETTINGS_DEFAULTS.optionalRulesets, error: "Unknown ruleset" };
+  }
+
+  const settings = await getSettings();
+  const next = {
+    ...settings.optionalRulesets,
+    [ruleset]: enabled === true
+  };
+
+  const optionalRulesets = await setOptionalRulesets(next);
+  return { optionalRulesets, error: "" };
 }
 
 async function handleToggleSite(url) {
@@ -271,7 +344,6 @@ async function handleToggleSite(url) {
   }
 
   const allowlist = await setAllowlist(Array.from(set));
-
   return {
     domain,
     siteAllowed: allowlist.includes(domain),
@@ -285,6 +357,14 @@ async function handleGetAllowlist() {
   return {
     allowlist: settings.allowlist,
     allowlistCount: settings.allowlist.length
+  };
+}
+
+async function handleGetRulesetSettings() {
+  const settings = await getSettings();
+  return {
+    mode: settings.mode,
+    optionalRulesets: settings.optionalRulesets
   };
 }
 
@@ -331,13 +411,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     if (message.type === "GET_STATE") {
-      const state = await handleGetState(message.url);
-      return { ok: true, ...state };
+      return { ok: true, ...(await handleGetState(message.url)) };
     }
 
     if (message.type === "SET_MODE") {
-      const state = await handleSetMode(message.mode);
-      return { ok: true, ...state };
+      return { ok: true, ...(await handleSetMode(message.mode)) };
+    }
+
+    if (message.type === "SET_OPTIONAL_RULESET") {
+      const state = await handleSetOptionalRuleset(message.ruleset, message.enabled);
+      return { ok: !state.error, ...state };
     }
 
     if (message.type === "TOGGLE_SITE") {
@@ -346,8 +429,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     if (message.type === "GET_ALLOWLIST") {
-      const state = await handleGetAllowlist();
-      return { ok: true, ...state };
+      return { ok: true, ...(await handleGetAllowlist()) };
+    }
+
+    if (message.type === "GET_RULESET_SETTINGS") {
+      return { ok: true, ...(await handleGetRulesetSettings()) };
     }
 
     if (message.type === "REMOVE_ALLOWLIST_DOMAIN") {
@@ -356,8 +442,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     if (message.type === "CLEAR_ALLOWLIST") {
-      const state = await handleClearAllowlist();
-      return { ok: true, ...state };
+      return { ok: true, ...(await handleClearAllowlist()) };
     }
 
     return { ok: false, error: "Unknown message type" };

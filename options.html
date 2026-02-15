@@ -24,6 +24,7 @@
         border: 1px solid #d8e0eb;
         border-radius: 12px;
         padding: 16px;
+        margin-bottom: 16px;
       }
       h1 {
         margin: 0 0 12px;
@@ -78,10 +79,37 @@
       .error {
         color: #b61d1d;
       }
+      .toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid #dde5f0;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #fff;
+      }
+      .toggle input {
+        margin: 0;
+      }
     </style>
   </head>
   <body>
     <main>
+      <div class="card">
+        <h1>Filter Profiles</h1>
+        <p class="sub">Enable optional rulesets for additional blocking.</p>
+        <div class="toggle">
+          <span>Annoyances ruleset</span>
+          <input id="toggle-annoyances" type="checkbox" />
+        </div>
+        <div class="toggle">
+          <span>Regional ruleset</span>
+          <input id="toggle-regional" type="checkbox" />
+        </div>
+        <div id="ruleset-status" class="sub">Loading...</div>
+      </div>
+
       <div class="card">
         <h1>Allowlist</h1>
         <p class="sub">Sites listed here will bypass ad blocking.</p>

@@ -10,6 +10,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 
 - `Standard` mode (default): compact high-impact blocking.
 - `Strict` mode: broader blocking rules for aggressive filtering.
+- Optional `Annoyances` and `Regional` rulesets (toggle from popup/options).
 - Per-site allowlist from popup.
 - Dedicated allowlist management page.
 - Block counters in popup (`session` and `today`).
@@ -36,6 +37,8 @@ safe_browsing/
 ├── options.js
 ├── rules_standard.json
 ├── rules_strict.json
+├── rules_annoyances.json
+├── rules_regional.json
 ├── rules_config.json
 ├── standard_sources.txt
 ├── strict_sources.txt
@@ -70,8 +73,9 @@ safe_browsing/
 
 1. Click the extension icon.
 2. Select `Standard` or `Strict`.
-3. Use `Allow ads on this site` for the current domain.
-4. Click `Manage allowlist` to remove/clear allowlisted domains.
+3. Toggle optional `Annoyances` / `Regional` filters if needed.
+4. Use `Allow ads on this site` for the current domain.
+5. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 
@@ -114,7 +118,8 @@ npm run rules:compile
 This compiles enabled profiles from `rules_config.json`:
 - `standard` -> `rules_standard.json`
 - `strict` -> `rules_strict.json`
-- optional scaffolds for `annoyances` and `regional` (disabled by default)
+- `annoyances` -> `rules_annoyances.json` (currently disabled in config)
+- `regional` -> `rules_regional.json` (currently disabled in config)
 
 Compiler stages:
 - source ingestion (`*.sources.txt`)

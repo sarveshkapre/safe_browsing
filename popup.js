@@ -1,9 +1,12 @@
 const modeSelect = document.getElementById("mode");
 const toggleSiteButton = document.getElementById("toggle-site");
+const annoyancesToggle = document.getElementById("toggle-annoyances");
+const regionalToggle = document.getElementById("toggle-regional");
 const manageAllowlistButton = document.getElementById("manage-allowlist");
 const refreshButton = document.getElementById("refresh");
 const meta = document.getElementById("meta");
 
+let isApplyingState = false;
 let currentTabUrl = "";
 let currentDomain = "";
 let siteAllowed = false;
@@ -11,6 +14,10 @@ let allowlistCount = 0;
 let sessionBlocked = 0;
 let todayBlocked = 0;
 let countersAvailable = false;
+let optionalRulesets = {
+  annoyances: false,
+  regional: false
+};
 
 async function getActiveTabUrl() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -31,7 +38,11 @@ function sendMessage(message) {
 }
 
 function render() {
+  isApplyingState = true;
+
   modeSelect.value = modeSelect.value || "standard";
+  annoyancesToggle.checked = optionalRulesets.annoyances === true;
+  regionalToggle.checked = optionalRulesets.regional === true;
 
   if (!currentDomain) {
     toggleSiteButton.disabled = true;
@@ -54,6 +65,8 @@ function render() {
 
   meta.classList.remove("error");
   meta.textContent = `${siteLine}\n${allowlistLine}\n${sessionLine}\n${todayLine}`;
+
+  isApplyingState = false;
 }
 
 function renderError(error) {
@@ -77,10 +90,32 @@ async function loadState() {
   sessionBlocked = response.sessionBlocked || 0;
   todayBlocked = response.todayBlocked || 0;
   countersAvailable = Boolean(response.countersAvailable);
+  optionalRulesets = response.optionalRulesets || optionalRulesets;
+
+  render();
+}
+
+async function setOptionalRuleset(ruleset, enabled) {
+  const response = await sendMessage({
+    type: "SET_OPTIONAL_RULESET",
+    ruleset,
+    enabled
+  });
+
+  if (!response.ok) {
+    renderError(response.error);
+    return;
+  }
+
+  optionalRulesets = response.optionalRulesets || optionalRulesets;
   render();
 }
 
 modeSelect.addEventListener("change", async () => {
+  if (isApplyingState) {
+    return;
+  }
+
   const response = await sendMessage({
     type: "SET_MODE",
     mode: modeSelect.value
@@ -110,6 +145,22 @@ toggleSiteButton.addEventListener("click", async () => {
   allowlistCount = response.allowlistCount;
   currentDomain = response.domain || currentDomain;
   render();
+});
+
+annoyancesToggle.addEventListener("change", async () => {
+  if (isApplyingState) {
+    return;
+  }
+
+  await setOptionalRuleset("annoyances", annoyancesToggle.checked);
+});
+
+regionalToggle.addEventListener("change", async () => {
+  if (isApplyingState) {
+    return;
+  }
+
+  await setOptionalRuleset("regional", regionalToggle.checked);
 });
 
 manageAllowlistButton.addEventListener("click", () => {
