@@ -34,29 +34,14 @@ const SETTINGS_DEFAULTS = {
   }
 };
 
-const SUBRESOURCE_TYPES = [
-  "sub_frame",
-  "script",
-  "image",
-  "xmlhttprequest",
-  "media",
-  "font",
-  "stylesheet",
-  "ping",
-  "other"
-];
-
 let dynamicRulesUpdateQueue = Promise.resolve();
 
 function runDynamicRulesUpdate(task) {
-  dynamicRulesUpdateQueue = dynamicRulesUpdateQueue
-    .then(task)
-    .catch((error) => {
-      console.error("Dynamic rules update failed:", error);
-      throw error;
-    });
-
-  return dynamicRulesUpdateQueue;
+  const run = dynamicRulesUpdateQueue.then(() => task());
+  dynamicRulesUpdateQueue = run.catch((error) => {
+    console.error("Dynamic rules update failed:", error);
+  });
+  return run;
 }
 
 function normalizeDomain(input) {
@@ -240,8 +225,8 @@ function buildAllowlistRules(domains) {
       priority: 10000,
       action: { type: "allowAllRequests" },
       condition: {
-        initiatorDomains: [domain],
-        resourceTypes: SUBRESOURCE_TYPES
+        requestDomains: [domain],
+        resourceTypes: ["main_frame", "sub_frame"]
       }
     });
   }
@@ -265,8 +250,8 @@ function buildXCompatibilityRules() {
       priority: 10001,
       action: { type: "allowAllRequests" },
       condition: {
-        initiatorDomains: X_COMPAT_DOMAINS,
-        resourceTypes: SUBRESOURCE_TYPES
+        requestDomains: X_COMPAT_DOMAINS,
+        resourceTypes: ["main_frame", "sub_frame"]
       }
     }
   ];
