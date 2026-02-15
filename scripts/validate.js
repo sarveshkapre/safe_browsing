@@ -19,7 +19,6 @@ const jsonFiles = [
 const jsFiles = [
   "background.js",
   "content/cookie_handler.js",
-  "content/x_ads_handler.js",
   "popup.js",
   "options.js",
   "scripts/compile_rules.js",
@@ -42,7 +41,6 @@ const mustExist = [
   "tests/rules-compiler.test.js",
   "content/cookie_handler.js",
   "content/cookie_handler.css",
-  "content/x_ads_handler.js",
   "rules_config.json",
   "standard_sources.txt",
   "strict_sources.txt",

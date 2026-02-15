@@ -14,7 +14,7 @@ cd "$ROOT_DIR"
 zip -r "$ZIP_PATH" \
   manifest.json \
   background.js \
-  content/cookie_handler.js content/cookie_handler.css content/x_ads_handler.js \
+  content/cookie_handler.js content/cookie_handler.css \
   icons/icon16.png icons/icon32.png icons/icon48.png icons/icon128.png icons/icon256.png icons/icon512.png \
   popup.html popup.js \
   options.html options.js \

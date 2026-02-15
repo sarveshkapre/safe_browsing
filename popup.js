@@ -1,7 +1,6 @@
 const modeSelect = document.getElementById("mode");
 const toggleSiteButton = document.getElementById("toggle-site");
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
-const xAdsHidingToggle = document.getElementById("toggle-x-ads-hiding");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const manageAllowlistButton = document.getElementById("manage-allowlist");
@@ -19,7 +18,6 @@ let todayBlocked = 0;
 let blockedActivityCount = 0;
 let countersAvailable = false;
 let cookieHandlingEnabled = true;
-let xAdsHidingEnabled = true;
 let optionalRulesets = {
   annoyances: false,
   regional: false
@@ -48,7 +46,6 @@ function render() {
 
   modeSelect.value = modeSelect.value || "standard";
   cookieHandlingToggle.checked = cookieHandlingEnabled;
-  xAdsHidingToggle.checked = xAdsHidingEnabled;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
 
@@ -101,7 +98,6 @@ async function loadState() {
   blockedActivityCount = response.blockedActivityCount || 0;
   countersAvailable = Boolean(response.countersAvailable);
   cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
-  xAdsHidingEnabled = response.xAdsHidingEnabled !== false;
   optionalRulesets = response.optionalRulesets || optionalRulesets;
 
   render();
@@ -135,21 +131,6 @@ async function setCookieHandling(enabled) {
   }
 
   cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
-  render();
-}
-
-async function setXAdsHiding(enabled) {
-  const response = await sendMessage({
-    type: "SET_X_ADS_HIDING",
-    enabled
-  });
-
-  if (!response.ok) {
-    renderError(response.error);
-    return;
-  }
-
-  xAdsHidingEnabled = response.xAdsHidingEnabled !== false;
   render();
 }
 
@@ -195,14 +176,6 @@ cookieHandlingToggle.addEventListener("change", async () => {
   }
 
   await setCookieHandling(cookieHandlingToggle.checked);
-});
-
-xAdsHidingToggle.addEventListener("change", async () => {
-  if (isApplyingState) {
-    return;
-  }
-
-  await setXAdsHiding(xAdsHidingToggle.checked);
 });
 
 annoyancesToggle.addEventListener("change", async () => {

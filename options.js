@@ -1,5 +1,4 @@
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
-const xAdsHidingToggle = document.getElementById("toggle-x-ads-hiding");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const rulesetStatus = document.getElementById("ruleset-status");
@@ -69,10 +68,9 @@ function rulesetLabel(rulesetId) {
   }
 }
 
-function applyRulesetUI(optionalRulesets, cookieHandlingEnabled, xAdsHidingEnabled) {
+function applyRulesetUI(optionalRulesets, cookieHandlingEnabled) {
   isApplyingRulesetState = true;
   cookieHandlingToggle.checked = cookieHandlingEnabled !== false;
-  xAdsHidingToggle.checked = xAdsHidingEnabled !== false;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
   isApplyingRulesetState = false;
@@ -91,11 +89,10 @@ async function loadRulesetSettings() {
     regional: false
   };
   const cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
-  const xAdsHidingEnabled = response.xAdsHidingEnabled !== false;
 
-  applyRulesetUI(optionalRulesets, cookieHandlingEnabled, xAdsHidingEnabled);
+  applyRulesetUI(optionalRulesets, cookieHandlingEnabled);
   setRulesetStatus(
-    `Cookie handling: ${cookieHandlingEnabled ? "on" : "off"} | X ads hiding: ${xAdsHidingEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
+    `Cookie handling: ${cookieHandlingEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
     false
   );
 }
@@ -123,20 +120,6 @@ async function setCookieHandling(enabled) {
 
   if (!response.ok) {
     setRulesetStatus(response.error || "Failed to update cookie handling", true);
-    return;
-  }
-
-  await loadRulesetSettings();
-}
-
-async function setXAdsHiding(enabled) {
-  const response = await sendMessage({
-    type: "SET_X_ADS_HIDING",
-    enabled
-  });
-
-  if (!response.ok) {
-    setRulesetStatus(response.error || "Failed to update X ads hiding", true);
     return;
   }
 
@@ -253,14 +236,6 @@ cookieHandlingToggle.addEventListener("change", async () => {
   }
 
   await setCookieHandling(cookieHandlingToggle.checked);
-});
-
-xAdsHidingToggle.addEventListener("change", async () => {
-  if (isApplyingRulesetState) {
-    return;
-  }
-
-  await setXAdsHiding(xAdsHidingToggle.checked);
 });
 
 annoyancesToggle.addEventListener("change", async () => {
