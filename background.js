@@ -46,6 +46,19 @@ const SUBRESOURCE_TYPES = [
   "other"
 ];
 
+let dynamicRulesUpdateQueue = Promise.resolve();
+
+function runDynamicRulesUpdate(task) {
+  dynamicRulesUpdateQueue = dynamicRulesUpdateQueue
+    .then(task)
+    .catch((error) => {
+      console.error("Dynamic rules update failed:", error);
+      throw error;
+    });
+
+  return dynamicRulesUpdateQueue;
+}
+
 function normalizeDomain(input) {
   if (!input || typeof input !== "string") {
     return "";
@@ -260,26 +273,25 @@ function buildXCompatibilityRules() {
 }
 
 async function applyAllowlist(domains) {
-  const dynamicRules = await chrome.declarativeNetRequest.getDynamicRules();
-  const removeRuleIds = dynamicRules
-    .map((rule) => rule.id)
-    .filter((id) => id >= ALLOWLIST_RULE_BASE && id < ALLOWLIST_RULE_MAX);
+  await runDynamicRulesUpdate(async () => {
+    const dynamicRules = await chrome.declarativeNetRequest.getDynamicRules();
+    const removeRuleIds = dynamicRules
+      .map((rule) => rule.id)
+      .filter((id) => id >= ALLOWLIST_RULE_BASE && id < ALLOWLIST_RULE_MAX);
 
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds,
-    addRules: buildAllowlistRules(domains)
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds,
+      addRules: buildAllowlistRules(domains)
+    });
   });
 }
 
 async function applyXCompatibilityRules(enabled) {
-  const dynamicRules = await chrome.declarativeNetRequest.getDynamicRules();
-  const removeRuleIds = dynamicRules
-    .map((rule) => rule.id)
-    .filter((id) => X_COMPAT_RULE_IDS.includes(id));
-
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds,
-    addRules: enabled ? buildXCompatibilityRules() : []
+  await runDynamicRulesUpdate(async () => {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: X_COMPAT_RULE_IDS,
+      addRules: enabled ? buildXCompatibilityRules() : []
+    });
   });
 }
 
