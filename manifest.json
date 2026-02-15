@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Safe Browsing Ad Blocker",
+  "version": "0.3.0",
+  "description": "Fast, lightweight Chromium ad and tracker blocker.",
+  "permissions": [
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "standard_rules",
+        "enabled": true,
+        "path": "rules_standard.json"
+      },
+      {
+        "id": "strict_rules",
+        "enabled": false,
+        "path": "rules_strict.json"
+      }
+    ]
+  },
+  "action": {
+    "default_title": "Safe Browsing Ad Blocker",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html"
+}
