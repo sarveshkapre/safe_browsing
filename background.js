@@ -21,6 +21,7 @@ const SETTINGS_DEFAULTS = {
   mode: MODE_STANDARD,
   allowlist: [],
   cookieHandlingEnabled: true,
+  xAdsBlockingEnabled: true,
   optionalRulesets: {
     annoyances: false,
     regional: false
@@ -212,6 +213,10 @@ function sanitizeCookieHandlingEnabled(input) {
   return input !== false;
 }
 
+function sanitizeXAdsBlockingEnabled(input) {
+  return input !== false;
+}
+
 function countersAvailable() {
   return Boolean(chrome.declarativeNetRequest && chrome.declarativeNetRequest.onRuleMatchedDebug);
 }
@@ -231,6 +236,7 @@ async function getSettings() {
     mode: stored.mode === MODE_STRICT ? MODE_STRICT : MODE_STANDARD,
     allowlist: sanitizeAllowlist(stored.allowlist),
     cookieHandlingEnabled: sanitizeCookieHandlingEnabled(stored.cookieHandlingEnabled),
+    xAdsBlockingEnabled: sanitizeXAdsBlockingEnabled(stored.xAdsBlockingEnabled),
     optionalRulesets: sanitizeOptionalRulesets(stored.optionalRulesets)
   };
 }
@@ -411,6 +417,7 @@ async function handleGetState(url) {
     mode: settings.mode,
     optionalRulesets: settings.optionalRulesets,
     cookieHandlingEnabled: settings.cookieHandlingEnabled,
+    xAdsBlockingEnabled: settings.xAdsBlockingEnabled,
     domain,
     siteAllowed: domain ? settings.allowlist.includes(domain) : false,
     allowlistCount: settings.allowlist.length,
@@ -432,6 +439,12 @@ async function handleSetCookieHandling(enabled) {
   const cookieHandlingEnabled = sanitizeCookieHandlingEnabled(enabled);
   await chrome.storage.local.set({ cookieHandlingEnabled });
   return { cookieHandlingEnabled };
+}
+
+async function handleSetXAdsBlocking(enabled) {
+  const xAdsBlockingEnabled = sanitizeXAdsBlockingEnabled(enabled);
+  await chrome.storage.local.set({ xAdsBlockingEnabled });
+  return { xAdsBlockingEnabled };
 }
 
 async function handleSetOptionalRuleset(ruleset, enabled) {
@@ -512,7 +525,8 @@ async function handleGetRulesetSettings() {
   return {
     mode: settings.mode,
     optionalRulesets: settings.optionalRulesets,
-    cookieHandlingEnabled: settings.cookieHandlingEnabled
+    cookieHandlingEnabled: settings.cookieHandlingEnabled,
+    xAdsBlockingEnabled: settings.xAdsBlockingEnabled
   };
 }
 
@@ -568,6 +582,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === "SET_COOKIE_HANDLING") {
       return { ok: true, ...(await handleSetCookieHandling(message.enabled)) };
+    }
+
+    if (message.type === "SET_X_ADS_BLOCKING") {
+      return { ok: true, ...(await handleSetXAdsBlocking(message.enabled)) };
     }
 
     if (message.type === "SET_OPTIONAL_RULESET") {

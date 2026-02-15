@@ -1,4 +1,5 @@
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
+const xAdsBlockingToggle = document.getElementById("toggle-x-ads-blocking");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const rulesetStatus = document.getElementById("ruleset-status");
@@ -68,9 +69,10 @@ function rulesetLabel(rulesetId) {
   }
 }
 
-function applyRulesetUI(optionalRulesets, cookieHandlingEnabled) {
+function applyRulesetUI(optionalRulesets, cookieHandlingEnabled, xAdsBlockingEnabled) {
   isApplyingRulesetState = true;
   cookieHandlingToggle.checked = cookieHandlingEnabled !== false;
+  xAdsBlockingToggle.checked = xAdsBlockingEnabled !== false;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
   isApplyingRulesetState = false;
@@ -89,10 +91,11 @@ async function loadRulesetSettings() {
     regional: false
   };
   const cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
+  const xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
 
-  applyRulesetUI(optionalRulesets, cookieHandlingEnabled);
+  applyRulesetUI(optionalRulesets, cookieHandlingEnabled, xAdsBlockingEnabled);
   setRulesetStatus(
-    `Cookie handling: ${cookieHandlingEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
+    `Cookie: ${cookieHandlingEnabled ? "on" : "off"} | X ads: ${xAdsBlockingEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
     false
   );
 }
@@ -120,6 +123,20 @@ async function setCookieHandling(enabled) {
 
   if (!response.ok) {
     setRulesetStatus(response.error || "Failed to update cookie handling", true);
+    return;
+  }
+
+  await loadRulesetSettings();
+}
+
+async function setXAdsBlocking(enabled) {
+  const response = await sendMessage({
+    type: "SET_X_ADS_BLOCKING",
+    enabled
+  });
+
+  if (!response.ok) {
+    setRulesetStatus(response.error || "Failed to update X ad blocking", true);
     return;
   }
 
@@ -236,6 +253,14 @@ cookieHandlingToggle.addEventListener("change", async () => {
   }
 
   await setCookieHandling(cookieHandlingToggle.checked);
+});
+
+xAdsBlockingToggle.addEventListener("change", async () => {
+  if (isApplyingRulesetState) {
+    return;
+  }
+
+  await setXAdsBlocking(xAdsBlockingToggle.checked);
 });
 
 annoyancesToggle.addEventListener("change", async () => {

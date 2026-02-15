@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Safe Browsing Ad Blocker",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Fast, lightweight Chromium ad and tracker blocker.",
   "permissions": [
     "declarativeNetRequest",
@@ -66,6 +66,16 @@
         "content/cookie_handler.css"
       ],
       "all_frames": true,
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "content/x_ads_handler.js"
+      ],
       "run_at": "document_start"
     }
   ]

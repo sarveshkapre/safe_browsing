@@ -1,6 +1,7 @@
 const modeSelect = document.getElementById("mode");
 const toggleSiteButton = document.getElementById("toggle-site");
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
+const xAdsBlockingToggle = document.getElementById("toggle-x-ads-blocking");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const manageAllowlistButton = document.getElementById("manage-allowlist");
@@ -18,6 +19,7 @@ let todayBlocked = 0;
 let blockedActivityCount = 0;
 let countersAvailable = false;
 let cookieHandlingEnabled = true;
+let xAdsBlockingEnabled = true;
 let optionalRulesets = {
   annoyances: false,
   regional: false
@@ -46,6 +48,7 @@ function render() {
 
   modeSelect.value = modeSelect.value || "standard";
   cookieHandlingToggle.checked = cookieHandlingEnabled;
+  xAdsBlockingToggle.checked = xAdsBlockingEnabled;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
 
@@ -98,6 +101,7 @@ async function loadState() {
   blockedActivityCount = response.blockedActivityCount || 0;
   countersAvailable = Boolean(response.countersAvailable);
   cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
+  xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
   optionalRulesets = response.optionalRulesets || optionalRulesets;
 
   render();
@@ -131,6 +135,21 @@ async function setCookieHandling(enabled) {
   }
 
   cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
+  render();
+}
+
+async function setXAdsBlocking(enabled) {
+  const response = await sendMessage({
+    type: "SET_X_ADS_BLOCKING",
+    enabled
+  });
+
+  if (!response.ok) {
+    renderError(response.error);
+    return;
+  }
+
+  xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
   render();
 }
 
@@ -176,6 +195,14 @@ cookieHandlingToggle.addEventListener("change", async () => {
   }
 
   await setCookieHandling(cookieHandlingToggle.checked);
+});
+
+xAdsBlockingToggle.addEventListener("change", async () => {
+  if (isApplyingState) {
+    return;
+  }
+
+  await setXAdsBlocking(xAdsBlockingToggle.checked);
 });
 
 annoyancesToggle.addEventListener("change", async () => {

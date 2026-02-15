@@ -12,6 +12,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - `Strict` mode: broader blocking rules for aggressive filtering.
 - Optional `Annoyances` and `Regional` rulesets (toggle from popup/options).
 - Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
+- X/Twitter feed ad hiding (beta): removes timeline entries with explicit `Ad` header badge.
 - Branded extension icons (`16/32/48/128/256/512`) generated locally.
 - Blocked activity log in settings (domain, site, ruleset, time).
 - Per-site allowlist from popup.
@@ -23,6 +24,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 
 - Blocking engine: Chromium `declarativeNetRequest` static rulesets.
 - Cookie UX layer: `document_start` content script for consent banners.
+- X feed UX layer: lightweight content script for explicit `Ad`-badge timeline items.
 - Runtime state: background service worker (`mode`, allowlist, counters).
 - UI:
   - Popup for mode toggle, current-site allowlist, and counters.
@@ -37,7 +39,8 @@ safe_browsing/
 ├── background.js
 ├── content/
 │   ├── cookie_handler.js
-│   └── cookie_handler.css
+│   ├── cookie_handler.css
+│   └── x_ads_handler.js
 ├── icons/
 │   ├── icon16.png
 │   ├── icon32.png
@@ -89,10 +92,11 @@ safe_browsing/
 1. Click the extension icon.
 2. Select `Standard` or `Strict`.
 3. Toggle `Cookie handling` on/off if needed.
-4. Toggle optional `Annoyances` / `Regional` filters if needed.
-5. Use `Allow ads on this site` for the current domain.
-6. Click `View blocked activity` to inspect blocked requests.
-7. Click `Manage allowlist` to remove/clear allowlisted domains.
+4. Toggle `X ads (beta)` to hide X/Twitter timeline ads with explicit `Ad` labels.
+5. Toggle optional `Annoyances` / `Regional` filters if needed.
+6. Use `Allow ads on this site` for the current domain.
+7. Click `View blocked activity` to inspect blocked requests.
+8. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 
