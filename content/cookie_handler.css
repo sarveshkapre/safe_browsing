@@ -1,0 +1,25 @@
+/* Hide well-known CMP containers quickly before paint. */
+#onetrust-banner-sdk,
+#onetrust-consent-sdk,
+#qc-cmp2-container,
+#qc-cmp2-ui,
+#truste-consent-track,
+[id^="sp_message_container_"],
+.sp_message_container,
+.didomi-popup-container,
+#didomi-host,
+[id*="cookie-banner" i],
+[id*="cookie-consent" i],
+[class*="cookie-banner" i],
+[class*="cookie-consent" i],
+[aria-label*="cookie" i][role="dialog"],
+[aria-label*="consent" i][role="dialog"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+html.safe-browsing-cookie-unlock,
+body.safe-browsing-cookie-unlock {
+  overflow: auto !important;
+  position: static !important;
+}

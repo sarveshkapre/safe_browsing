@@ -11,6 +11,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - `Standard` mode (default): compact high-impact blocking.
 - `Strict` mode: broader blocking rules for aggressive filtering.
 - Optional `Annoyances` and `Regional` rulesets (toggle from popup/options).
+- Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
 - Per-site allowlist from popup.
 - Dedicated allowlist management page.
 - Block counters in popup (`session` and `today`).
@@ -19,6 +20,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 ## Architecture
 
 - Blocking engine: Chromium `declarativeNetRequest` static rulesets.
+- Cookie UX layer: `document_start` content script for consent banners.
 - Runtime state: background service worker (`mode`, allowlist, counters).
 - UI:
   - Popup for mode toggle, current-site allowlist, and counters.
@@ -31,6 +33,9 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 safe_browsing/
 ├── manifest.json
 ├── background.js
+├── content/
+│   ├── cookie_handler.js
+│   └── cookie_handler.css
 ├── popup.html
 ├── popup.js
 ├── options.html
@@ -75,7 +80,8 @@ safe_browsing/
 2. Select `Standard` or `Strict`.
 3. Toggle optional `Annoyances` / `Regional` filters if needed.
 4. Use `Allow ads on this site` for the current domain.
-5. Click `Manage allowlist` to remove/clear allowlisted domains.
+5. Cookie banners are auto-handled when possible.
+6. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 
