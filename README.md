@@ -13,6 +13,7 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - Optional `Annoyances` and `Regional` rulesets (toggle from popup/options).
 - Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
 - Branded extension icons (`16/32/48/128/256/512`) generated locally.
+- Blocked activity log in settings (domain, site, ruleset, time).
 - Per-site allowlist from popup.
 - Dedicated allowlist management page.
 - Block counters in popup (`session` and `today`).
@@ -87,10 +88,11 @@ safe_browsing/
 
 1. Click the extension icon.
 2. Select `Standard` or `Strict`.
-3. Toggle optional `Annoyances` / `Regional` filters if needed.
-4. Use `Allow ads on this site` for the current domain.
-5. Cookie banners are auto-handled when possible.
-6. Click `Manage allowlist` to remove/clear allowlisted domains.
+3. Toggle `Cookie handling` on/off if needed.
+4. Toggle optional `Annoyances` / `Regional` filters if needed.
+5. Use `Allow ads on this site` for the current domain.
+6. Click `View blocked activity` to inspect blocked requests.
+7. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 

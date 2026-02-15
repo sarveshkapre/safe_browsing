@@ -1,9 +1,11 @@
 const modeSelect = document.getElementById("mode");
 const toggleSiteButton = document.getElementById("toggle-site");
+const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const manageAllowlistButton = document.getElementById("manage-allowlist");
 const refreshButton = document.getElementById("refresh");
+const viewBlockedActivityButton = document.getElementById("view-blocked-activity");
 const meta = document.getElementById("meta");
 
 let isApplyingState = false;
@@ -13,7 +15,9 @@ let siteAllowed = false;
 let allowlistCount = 0;
 let sessionBlocked = 0;
 let todayBlocked = 0;
+let blockedActivityCount = 0;
 let countersAvailable = false;
+let cookieHandlingEnabled = true;
 let optionalRulesets = {
   annoyances: false,
   regional: false
@@ -41,6 +45,7 @@ function render() {
   isApplyingState = true;
 
   modeSelect.value = modeSelect.value || "standard";
+  cookieHandlingToggle.checked = cookieHandlingEnabled;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
 
@@ -62,9 +67,10 @@ function render() {
   const todayLine = countersAvailable
     ? `Blocked today: ${todayBlocked}`
     : "Blocked today: unavailable";
+  const activityLine = `Blocked activity entries: ${blockedActivityCount}`;
 
   meta.classList.remove("error");
-  meta.textContent = `${siteLine}\n${allowlistLine}\n${sessionLine}\n${todayLine}`;
+  meta.textContent = `${siteLine}\n${allowlistLine}\n${sessionLine}\n${todayLine}\n${activityLine}`;
 
   isApplyingState = false;
 }
@@ -89,7 +95,9 @@ async function loadState() {
   allowlistCount = response.allowlistCount;
   sessionBlocked = response.sessionBlocked || 0;
   todayBlocked = response.todayBlocked || 0;
+  blockedActivityCount = response.blockedActivityCount || 0;
   countersAvailable = Boolean(response.countersAvailable);
+  cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
   optionalRulesets = response.optionalRulesets || optionalRulesets;
 
   render();
@@ -108,6 +116,21 @@ async function setOptionalRuleset(ruleset, enabled) {
   }
 
   optionalRulesets = response.optionalRulesets || optionalRulesets;
+  render();
+}
+
+async function setCookieHandling(enabled) {
+  const response = await sendMessage({
+    type: "SET_COOKIE_HANDLING",
+    enabled
+  });
+
+  if (!response.ok) {
+    renderError(response.error);
+    return;
+  }
+
+  cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
   render();
 }
 
@@ -147,6 +170,14 @@ toggleSiteButton.addEventListener("click", async () => {
   render();
 });
 
+cookieHandlingToggle.addEventListener("change", async () => {
+  if (isApplyingState) {
+    return;
+  }
+
+  await setCookieHandling(cookieHandlingToggle.checked);
+});
+
 annoyancesToggle.addEventListener("change", async () => {
   if (isApplyingState) {
     return;
@@ -169,6 +200,10 @@ manageAllowlistButton.addEventListener("click", () => {
 
 refreshButton.addEventListener("click", async () => {
   await loadState();
+});
+
+viewBlockedActivityButton.addEventListener("click", () => {
+  chrome.runtime.openOptionsPage();
 });
 
 loadState().catch((error) => renderError(String(error)));

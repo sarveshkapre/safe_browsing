@@ -1,6 +1,6 @@
 {
   "name": "safe-browsing-extension",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Chromium Manifest V3 ad blocker extension",
   "scripts": {

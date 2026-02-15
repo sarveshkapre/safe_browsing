@@ -60,9 +60,14 @@
     "a[href]"
   ].join(",");
 
+  const MAX_SCAN_DURATION_MS = 25000;
+
   const seenBanners = new WeakSet();
   const handledClickTargets = new WeakSet();
-  const scanStopAt = Date.now() + 25000;
+
+  let enabled = true;
+  let running = false;
+  let scanStartedAt = 0;
   let observer = null;
   let intervalId = null;
   let scanQueued = false;
@@ -305,8 +310,30 @@
     return false;
   }
 
+  function stopScanning() {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+
+    running = false;
+  }
+
+  function shouldContinueScanning() {
+    if (!enabled) {
+      return false;
+    }
+
+    return Date.now() - scanStartedAt <= MAX_SCAN_DURATION_MS;
+  }
+
   function scanNow() {
-    if (Date.now() > scanStopAt) {
+    if (!shouldContinueScanning()) {
       stopScanning();
       return;
     }
@@ -324,7 +351,7 @@
   }
 
   function queueScan() {
-    if (scanQueued) {
+    if (!enabled || scanQueued) {
       return;
     }
 
@@ -335,21 +362,15 @@
     });
   }
 
-  function stopScanning() {
-    if (observer) {
-      observer.disconnect();
-      observer = null;
-    }
-
-    if (intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-  }
-
   function startScanning() {
-    scanNow();
+    if (!enabled || running) {
+      return;
+    }
 
+    running = true;
+    scanStartedAt = Date.now();
+
+    scanNow();
     intervalId = setInterval(scanNow, 900);
 
     if (document.documentElement) {
@@ -365,9 +386,46 @@
     window.addEventListener("load", queueScan, { once: true });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", startScanning, { once: true });
-  } else {
+  function startWhenReady() {
+    if (!enabled) {
+      stopScanning();
+      return;
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", startScanning, { once: true });
+      return;
+    }
+
     startScanning();
   }
+
+  function setEnabled(nextEnabled) {
+    enabled = nextEnabled !== false;
+
+    if (!enabled) {
+      stopScanning();
+      return;
+    }
+
+    startWhenReady();
+  }
+
+  chrome.storage.local.get({ cookieHandlingEnabled: true }, (data) => {
+    if (chrome.runtime.lastError) {
+      setEnabled(true);
+      return;
+    }
+
+    setEnabled(data.cookieHandlingEnabled !== false);
+  });
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes.cookieHandlingEnabled) {
+      return;
+    }
+
+    const nextValue = changes.cookieHandlingEnabled.newValue;
+    setEnabled(nextValue !== false);
+  });
 })();

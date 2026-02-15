@@ -20,6 +20,7 @@ const MAX_ALLOWLIST_DOMAINS = 2000;
 const SETTINGS_DEFAULTS = {
   mode: MODE_STANDARD,
   allowlist: [],
+  cookieHandlingEnabled: true,
   optionalRulesets: {
     annoyances: false,
     regional: false
@@ -30,6 +31,12 @@ const COUNTERS_DEFAULTS = {
   counterDayKey: "",
   todayBlocked: 0
 };
+
+const BLOCKED_ACTIVITY_DEFAULTS = {
+  blockedActivity: []
+};
+
+const BLOCKED_ACTIVITY_MAX = 200;
 
 const SUBRESOURCE_TYPES = [
   "sub_frame",
@@ -47,6 +54,8 @@ let todayBlocked = 0;
 let sessionBlocked = 0;
 let counterDayKey = "";
 let persistTimer = null;
+let blockedActivity = [];
+let blockedActivityPersistTimer = null;
 
 function getDayKey() {
   const now = new Date();
@@ -69,6 +78,19 @@ function scheduleCounterPersist() {
   }, 500);
 }
 
+function scheduleBlockedActivityPersist() {
+  if (blockedActivityPersistTimer) {
+    clearTimeout(blockedActivityPersistTimer);
+  }
+
+  blockedActivityPersistTimer = setTimeout(() => {
+    blockedActivityPersistTimer = null;
+    chrome.storage.local
+      .set({ blockedActivity })
+      .catch((error) => console.error("Failed to persist blocked activity:", error));
+  }, 700);
+}
+
 function normalizeDomain(input) {
   if (!input || typeof input !== "string") {
     return "";
@@ -87,6 +109,23 @@ function normalizeDomain(input) {
       return "";
     }
 
+    return hostname.startsWith("www.") ? hostname.slice(4) : hostname;
+  } catch {
+    return "";
+  }
+}
+
+function domainFromUrl(url) {
+  if (!url || typeof url !== "string") {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    if (!hostname) {
+      return "";
+    }
     return hostname.startsWith("www.") ? hostname.slice(4) : hostname;
   } catch {
     return "";
@@ -118,6 +157,46 @@ function sanitizeAllowlist(input) {
   return out.sort();
 }
 
+function sanitizeBlockedActivity(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  const out = [];
+  for (const item of input) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const timestamp = Number(item.timestamp);
+    const blockedDomain = normalizeDomain(item.blockedDomain || "");
+    const pageDomain = normalizeDomain(item.pageDomain || "");
+    const requestUrl = typeof item.requestUrl === "string" ? item.requestUrl : "";
+    const rulesetId = typeof item.rulesetId === "string" ? item.rulesetId : "";
+    const resourceType = typeof item.resourceType === "string" ? item.resourceType : "";
+
+    if (!Number.isFinite(timestamp) || (!blockedDomain && !requestUrl)) {
+      continue;
+    }
+
+    out.push({
+      timestamp,
+      blockedDomain,
+      pageDomain,
+      requestUrl,
+      rulesetId,
+      resourceType
+    });
+
+    if (out.length >= BLOCKED_ACTIVITY_MAX) {
+      break;
+    }
+  }
+
+  out.sort((left, right) => right.timestamp - left.timestamp);
+  return out.slice(0, BLOCKED_ACTIVITY_MAX);
+}
+
 function sanitizeOptionalRulesets(input) {
   const source = input && typeof input === "object" ? input : {};
   const output = {};
@@ -127,6 +206,10 @@ function sanitizeOptionalRulesets(input) {
   }
 
   return output;
+}
+
+function sanitizeCookieHandlingEnabled(input) {
+  return input !== false;
 }
 
 function countersAvailable() {
@@ -147,6 +230,7 @@ async function getSettings() {
   return {
     mode: stored.mode === MODE_STRICT ? MODE_STRICT : MODE_STANDARD,
     allowlist: sanitizeAllowlist(stored.allowlist),
+    cookieHandlingEnabled: sanitizeCookieHandlingEnabled(stored.cookieHandlingEnabled),
     optionalRulesets: sanitizeOptionalRulesets(stored.optionalRulesets)
   };
 }
@@ -255,23 +339,57 @@ async function syncFromStorage() {
 async function initializeDefaults() {
   const settings = await getSettings();
   const counterState = await chrome.storage.local.get(COUNTERS_DEFAULTS);
+  const blockedActivityState = await chrome.storage.local.get(BLOCKED_ACTIVITY_DEFAULTS);
 
   counterDayKey = counterState.counterDayKey || getDayKey();
   todayBlocked = Number.isFinite(counterState.todayBlocked) ? counterState.todayBlocked : 0;
+  blockedActivity = sanitizeBlockedActivity(blockedActivityState.blockedActivity);
   maybeResetDailyCounter();
 
   await chrome.storage.local.set({
     ...settings,
     counterDayKey,
-    todayBlocked
+    todayBlocked,
+    blockedActivity
   });
 }
 
-function incrementBlockedCounters() {
+function recordBlockedActivity(info) {
+  const request = info && info.request ? info.request : {};
+  const rule = info && info.rule ? info.rule : {};
+
+  const requestUrl = typeof request.url === "string" ? request.url : "";
+  const blockedDomain = domainFromUrl(requestUrl);
+  if (!blockedDomain) {
+    return;
+  }
+
+  const pageDomain = domainFromUrl(request.initiator || request.documentUrl || "");
+  const rulesetId = typeof rule.rulesetId === "string" ? rule.rulesetId : "";
+  const resourceType = typeof request.type === "string" ? request.type : "";
+
+  blockedActivity.unshift({
+    timestamp: Date.now(),
+    blockedDomain,
+    pageDomain,
+    requestUrl,
+    rulesetId,
+    resourceType
+  });
+
+  if (blockedActivity.length > BLOCKED_ACTIVITY_MAX) {
+    blockedActivity = blockedActivity.slice(0, BLOCKED_ACTIVITY_MAX);
+  }
+
+  scheduleBlockedActivityPersist();
+}
+
+function incrementBlockedCounters(info) {
   maybeResetDailyCounter();
   todayBlocked += 1;
   sessionBlocked += 1;
   scheduleCounterPersist();
+  recordBlockedActivity(info);
 }
 
 function shouldCountMatchedRule(info) {
@@ -292,11 +410,13 @@ async function handleGetState(url) {
   return {
     mode: settings.mode,
     optionalRulesets: settings.optionalRulesets,
+    cookieHandlingEnabled: settings.cookieHandlingEnabled,
     domain,
     siteAllowed: domain ? settings.allowlist.includes(domain) : false,
     allowlistCount: settings.allowlist.length,
     sessionBlocked,
     todayBlocked,
+    blockedActivityCount: blockedActivity.length,
     countersAvailable: countersAvailable()
   };
 }
@@ -306,6 +426,12 @@ async function handleSetMode(mode) {
   await chrome.storage.local.set({ mode: normalizedMode });
   await applyMode(normalizedMode);
   return { mode: normalizedMode };
+}
+
+async function handleSetCookieHandling(enabled) {
+  const cookieHandlingEnabled = sanitizeCookieHandlingEnabled(enabled);
+  await chrome.storage.local.set({ cookieHandlingEnabled });
+  return { cookieHandlingEnabled };
 }
 
 async function handleSetOptionalRuleset(ruleset, enabled) {
@@ -360,11 +486,33 @@ async function handleGetAllowlist() {
   };
 }
 
+async function handleGetBlockedActivity(limitInput) {
+  const limit = Number(limitInput);
+  const normalizedLimit = Number.isFinite(limit)
+    ? Math.max(1, Math.min(BLOCKED_ACTIVITY_MAX, Math.floor(limit)))
+    : 100;
+
+  return {
+    blockedActivity: blockedActivity.slice(0, normalizedLimit),
+    blockedActivityCount: blockedActivity.length
+  };
+}
+
+async function handleClearBlockedActivity() {
+  blockedActivity = [];
+  await chrome.storage.local.set({ blockedActivity });
+  return {
+    blockedActivity,
+    blockedActivityCount: 0
+  };
+}
+
 async function handleGetRulesetSettings() {
   const settings = await getSettings();
   return {
     mode: settings.mode,
-    optionalRulesets: settings.optionalRulesets
+    optionalRulesets: settings.optionalRulesets,
+    cookieHandlingEnabled: settings.cookieHandlingEnabled
   };
 }
 
@@ -399,7 +547,7 @@ chrome.runtime.onStartup.addListener(() => {
 if (countersAvailable()) {
   chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
     if (shouldCountMatchedRule(info)) {
-      incrementBlockedCounters();
+      incrementBlockedCounters(info);
     }
   });
 }
@@ -418,6 +566,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return { ok: true, ...(await handleSetMode(message.mode)) };
     }
 
+    if (message.type === "SET_COOKIE_HANDLING") {
+      return { ok: true, ...(await handleSetCookieHandling(message.enabled)) };
+    }
+
     if (message.type === "SET_OPTIONAL_RULESET") {
       const state = await handleSetOptionalRuleset(message.ruleset, message.enabled);
       return { ok: !state.error, ...state };
@@ -430,6 +582,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === "GET_ALLOWLIST") {
       return { ok: true, ...(await handleGetAllowlist()) };
+    }
+
+    if (message.type === "GET_BLOCKED_ACTIVITY") {
+      return { ok: true, ...(await handleGetBlockedActivity(message.limit)) };
+    }
+
+    if (message.type === "CLEAR_BLOCKED_ACTIVITY") {
+      return { ok: true, ...(await handleClearBlockedActivity()) };
     }
 
     if (message.type === "GET_RULESET_SETTINGS") {

@@ -1,3 +1,4 @@
+const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const rulesetStatus = document.getElementById("ruleset-status");
@@ -6,6 +7,10 @@ const refreshButton = document.getElementById("refresh");
 const clearAllButton = document.getElementById("clear-all");
 const status = document.getElementById("status");
 const allowlistContainer = document.getElementById("allowlist");
+const activityRefreshButton = document.getElementById("activity-refresh");
+const activityClearButton = document.getElementById("activity-clear");
+const activityStatus = document.getElementById("activity-status");
+const blockedActivityContainer = document.getElementById("blocked-activity");
 
 let isApplyingRulesetState = false;
 
@@ -26,13 +31,46 @@ function setStatus(text, isError) {
   status.className = isError ? "sub error" : "sub";
 }
 
+function setActivityStatus(text, isError) {
+  activityStatus.textContent = text;
+  activityStatus.className = isError ? "sub error" : "sub";
+}
+
 function setRulesetStatus(text, isError) {
   rulesetStatus.textContent = text;
   rulesetStatus.className = isError ? "sub error" : "sub";
 }
 
-function applyRulesetUI(optionalRulesets) {
+function formatTime(timestamp) {
+  if (!Number.isFinite(timestamp)) {
+    return "Unknown time";
+  }
+
+  try {
+    return new Date(timestamp).toLocaleString();
+  } catch {
+    return "Unknown time";
+  }
+}
+
+function rulesetLabel(rulesetId) {
+  switch (rulesetId) {
+    case "standard_rules":
+      return "standard";
+    case "strict_rules":
+      return "strict";
+    case "annoyances_rules":
+      return "annoyances";
+    case "regional_rules":
+      return "regional";
+    default:
+      return rulesetId || "unknown";
+  }
+}
+
+function applyRulesetUI(optionalRulesets, cookieHandlingEnabled) {
   isApplyingRulesetState = true;
+  cookieHandlingToggle.checked = cookieHandlingEnabled !== false;
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
   isApplyingRulesetState = false;
@@ -50,10 +88,11 @@ async function loadRulesetSettings() {
     annoyances: false,
     regional: false
   };
+  const cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
 
-  applyRulesetUI(optionalRulesets);
+  applyRulesetUI(optionalRulesets, cookieHandlingEnabled);
   setRulesetStatus(
-    `Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
+    `Cookie handling: ${cookieHandlingEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
     false
   );
 }
@@ -70,7 +109,20 @@ async function setOptionalRuleset(ruleset, enabled) {
     return;
   }
 
-  applyRulesetUI(response.optionalRulesets || {});
+  await loadRulesetSettings();
+}
+
+async function setCookieHandling(enabled) {
+  const response = await sendMessage({
+    type: "SET_COOKIE_HANDLING",
+    enabled
+  });
+
+  if (!response.ok) {
+    setRulesetStatus(response.error || "Failed to update cookie handling", true);
+    return;
+  }
+
   await loadRulesetSettings();
 }
 
@@ -119,6 +171,53 @@ function renderAllowlist(domains) {
   });
 }
 
+function renderBlockedActivity(entries) {
+  blockedActivityContainer.innerHTML = "";
+
+  if (!entries.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "No blocked activity yet.";
+    blockedActivityContainer.appendChild(empty);
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const item = document.createElement("li");
+    item.className = "activity-item";
+
+    const main = document.createElement("div");
+    main.className = "activity-main";
+    const blockedDomain = entry.blockedDomain || "unknown-domain";
+    main.textContent = blockedDomain;
+
+    const meta = document.createElement("div");
+    meta.className = "activity-meta";
+    const pageDomain = entry.pageDomain || "unknown-site";
+    const resourceType = entry.resourceType || "other";
+    const ruleset = rulesetLabel(entry.rulesetId);
+    const time = formatTime(Number(entry.timestamp));
+    meta.textContent = `site: ${pageDomain} | type: ${resourceType} | ruleset: ${ruleset} | ${time}`;
+
+    item.appendChild(main);
+    item.appendChild(meta);
+    blockedActivityContainer.appendChild(item);
+  });
+}
+
+async function loadBlockedActivity() {
+  const response = await sendMessage({ type: "GET_BLOCKED_ACTIVITY", limit: 120 });
+
+  if (!response.ok) {
+    setActivityStatus(response.error || "Failed to load blocked activity", true);
+    return;
+  }
+
+  const entries = Array.isArray(response.blockedActivity) ? response.blockedActivity : [];
+  renderBlockedActivity(entries);
+  setActivityStatus(`Stored entries: ${response.blockedActivityCount || 0}`, false);
+}
+
 async function loadAllowlist() {
   const response = await sendMessage({ type: "GET_ALLOWLIST" });
 
@@ -130,6 +229,14 @@ async function loadAllowlist() {
   renderAllowlist(response.allowlist || []);
   setStatus(`Allowlisted sites: ${response.allowlistCount || 0}`, false);
 }
+
+cookieHandlingToggle.addEventListener("change", async () => {
+  if (isApplyingRulesetState) {
+    return;
+  }
+
+  await setCookieHandling(cookieHandlingToggle.checked);
+});
 
 annoyancesToggle.addEventListener("change", async () => {
   if (isApplyingRulesetState) {
@@ -162,7 +269,23 @@ clearAllButton.addEventListener("click", async () => {
   await loadAllowlist();
 });
 
-Promise.all([loadRulesetSettings(), loadAllowlist()]).catch((error) => {
+activityRefreshButton.addEventListener("click", () => {
+  loadBlockedActivity().catch((error) => setActivityStatus(String(error), true));
+});
+
+activityClearButton.addEventListener("click", async () => {
+  const response = await sendMessage({ type: "CLEAR_BLOCKED_ACTIVITY" });
+
+  if (!response.ok) {
+    setActivityStatus(response.error || "Failed to clear blocked activity", true);
+    return;
+  }
+
+  await loadBlockedActivity();
+});
+
+Promise.all([loadRulesetSettings(), loadAllowlist(), loadBlockedActivity()]).catch((error) => {
   setStatus(String(error), true);
   setRulesetStatus(String(error), true);
+  setActivityStatus(String(error), true);
 });
