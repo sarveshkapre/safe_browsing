@@ -8,11 +8,37 @@
   const EXACT_PROMO_LABELS = new Set([
     "promoted",
     "sponsored",
-    "ad",
-    "advertisement"
+    "promocionado",
+    "patrocinado",
+    "gesponsert",
+    "sponsorisé",
+    "sponsorizzato",
+    "реклама",
+    "sponsrad",
+    "sponsored post"
   ]);
 
-  const TEXT_PATTERNS = [/\bpromoted\b/i, /\bsponsored\b/i, /\bad\b/i];
+  const PROMO_LABEL_PATTERNS = [
+    /\bpromoted\b/i,
+    /\bsponsored\b/i,
+    /\bpromocionado\b/i,
+    /\bpatrocinado\b/i,
+    /\bgesponsert\b/i,
+    /\bsponsorisé\b/i,
+    /\bsponsorizzato\b/i,
+    /\bреклама\b/i,
+    /\b赞助\b/i,
+    /\bスポンサー\b/i
+  ];
+
+  const AD_LINK_SELECTORS = [
+    "a[href*='/i/ads/']",
+    "a[href*='ads.twitter.com']",
+    "a[href*='business.twitter.com']"
+  ].join(",");
+
+  const MAX_PROMO_RATIO = 0.35;
+  const MIN_TWEETS_FOR_RATIO_GUARD = 6;
 
   let enabled = true;
   let observer = null;
@@ -29,38 +55,56 @@
     return Array.from(document.querySelectorAll("article[data-testid='tweet']"));
   }
 
-  function hasExactPromotedLabel(article) {
-    const nodes = article.querySelectorAll("span,div,a");
+  function isLikelyPromoLabel(text) {
+    if (!text) {
+      return false;
+    }
+
+    if (EXACT_PROMO_LABELS.has(text)) {
+      return true;
+    }
+
+    return PROMO_LABEL_PATTERNS.some((pattern) => pattern.test(text));
+  }
+
+  function hasPromotedLabel(article) {
+    const nodes = article.querySelectorAll("span, a, div");
+
     for (const node of nodes) {
       const text = normalizeText(node.textContent);
-      if (EXACT_PROMO_LABELS.has(text)) {
+      if (!text || text.length > 28) {
+        continue;
+      }
+
+      if (isLikelyPromoLabel(text)) {
+        return true;
+      }
+
+      const ariaLabel = normalizeText(node.getAttribute("aria-label"));
+      if (ariaLabel && ariaLabel.length <= 40 && isLikelyPromoLabel(ariaLabel)) {
         return true;
       }
     }
+
     return false;
   }
 
-  function scorePromotedSignals(article) {
-    let score = 0;
+  function hasAdLink(article) {
+    return Boolean(article.querySelector(AD_LINK_SELECTORS));
+  }
 
-    if (article.querySelector("a[href*='/i/ads/'], a[href*='ads.twitter.com']")) {
-      score += 3;
+  function hasPlacementSignal(article) {
+    return Boolean(article.querySelector("[data-testid='placementTracking']"));
+  }
+
+  function isPromotedArticle(article) {
+    const hasLabel = hasPromotedLabel(article);
+    if (hasLabel) {
+      return true;
     }
 
-    if (article.querySelector("[data-testid='placementTracking']")) {
-      score += 1;
-    }
-
-    if (hasExactPromotedLabel(article)) {
-      score += 2;
-    }
-
-    const fullText = normalizeText(article.innerText || article.textContent || "");
-    if (TEXT_PATTERNS.some((pattern) => pattern.test(fullText))) {
-      score += 1;
-    }
-
-    return score;
+    // Conservative fallback: require both ad-link and placement signal.
+    return hasAdLink(article) && hasPlacementSignal(article);
   }
 
   function findHideTarget(article) {
@@ -98,11 +142,28 @@
       return;
     }
 
-    for (const article of collectTweetArticles()) {
-      const score = scorePromotedSignals(article);
-      if (score >= 2) {
-        hidePromotedArticle(article);
+    const articles = collectTweetArticles();
+    if (!articles.length) {
+      return;
+    }
+
+    const promoted = [];
+    for (const article of articles) {
+      if (isPromotedArticle(article)) {
+        promoted.push(article);
       }
+    }
+
+    // Safety guard: if heuristic claims too many tweets are promoted, skip hiding.
+    if (
+      articles.length >= MIN_TWEETS_FOR_RATIO_GUARD &&
+      promoted.length / articles.length > MAX_PROMO_RATIO
+    ) {
+      return;
+    }
+
+    for (const article of promoted) {
+      hidePromotedArticle(article);
     }
   }
 
