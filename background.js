@@ -656,6 +656,9 @@ async function handleGetState(url) {
     sessionXAdsHidden: summary.sessionXAdsHidden,
     todayXAdsHidden: summary.todayXAdsHidden,
     blockedActivityCount: blockedActivity.length,
+    topBlockedDomain: Array.isArray(summary.topDomains) && summary.topDomains.length
+      ? summary.topDomains[0].value
+      : "",
     dnrCapacity
   };
 }

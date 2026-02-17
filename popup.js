@@ -27,6 +27,7 @@ let todayXAdsHidden = 0;
 let blockedActivityCount = 0;
 let dnrCapacity = null;
 let statsRetentionDays = 30;
+let topBlockedDomain = "";
 let optionalRulesets = {
   annoyances: false,
   regional: false
@@ -76,6 +77,9 @@ function render() {
   const blockedLine = `Network blocked: ${todayBlocked} today (${sessionBlocked} session)`;
   const xBlockedLine = `X ads hidden: ${todayXAdsHidden} today (${sessionXAdsHidden} session)`;
   const detailLine = `Detailed entries: ${blockedActivityCount}`;
+  const topDomainLine = topBlockedDomain
+    ? `Top blocked domain: ${topBlockedDomain}`
+    : "Top blocked domain: none yet";
   const retentionLine = `Stats retention: ${statsRetentionDays} days`;
   const pausedLine = `Protection: ${paused ? "paused" : "active"}`;
   const xCompatLine = `X compatibility: ${xCompatibilityModeEnabled ? "on" : "off"}`;
@@ -84,7 +88,7 @@ function render() {
     : "DNR capacity: unavailable";
 
   meta.classList.remove("error");
-  meta.textContent = `${pausedLine}\n${xCompatLine}\n${siteLine}\n${allowlistLine}\n${blockedLine}\n${xBlockedLine}\n${detailLine}\n${retentionLine}\n${dnrLine}`;
+  meta.textContent = `${pausedLine}\n${xCompatLine}\n${siteLine}\n${allowlistLine}\n${blockedLine}\n${xBlockedLine}\n${detailLine}\n${topDomainLine}\n${retentionLine}\n${dnrLine}`;
 
   isApplyingState = false;
 }
@@ -117,6 +121,7 @@ async function loadState() {
   todayXAdsHidden = Number.isFinite(response.todayXAdsHidden) ? response.todayXAdsHidden : 0;
   blockedActivityCount = Number.isFinite(response.blockedActivityCount) ? response.blockedActivityCount : 0;
   statsRetentionDays = Number.isFinite(response.statsRetentionDays) ? response.statsRetentionDays : 30;
+  topBlockedDomain = typeof response.topBlockedDomain === "string" ? response.topBlockedDomain : "";
   dnrCapacity = response.dnrCapacity || null;
   optionalRulesets = response.optionalRulesets || optionalRulesets;
 
