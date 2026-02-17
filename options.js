@@ -17,8 +17,18 @@ const activityStatus = document.getElementById("activity-status");
 const topDomainsContainer = document.getElementById("activity-top-domains");
 const topUrlsContainer = document.getElementById("activity-top-urls");
 const blockedActivityContainer = document.getElementById("blocked-activity");
+const activitySourceFilter = document.getElementById("activity-source-filter");
+const activitySearchInput = document.getElementById("activity-search");
 
 let isApplyingRulesetState = false;
+let detailedEntries = [];
+let latestStatsMeta = {
+  blockedCount: 0,
+  todayBlocked: 0,
+  sessionBlocked: 0,
+  todayXAdsHidden: 0,
+  sessionXAdsHidden: 0
+};
 
 function sendMessage(message) {
   return new Promise((resolve) => {
@@ -304,6 +314,43 @@ function renderBlockedActivity(entries) {
   });
 }
 
+function filterEntries(entries) {
+  const source = activitySourceFilter.value || "all";
+  const query = String(activitySearchInput.value || "").trim().toLowerCase();
+
+  return entries.filter((entry) => {
+    if (source !== "all" && entry.source !== source) {
+      return false;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    const haystack = [
+      entry.blockedDomain,
+      entry.pageDomain,
+      entry.requestUrl,
+      entry.rulesetId
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(query);
+  });
+}
+
+function renderDetailedStats() {
+  const filtered = filterEntries(detailedEntries);
+  renderBlockedActivity(filtered);
+
+  setActivityStatus(
+    `Entries: ${latestStatsMeta.blockedCount} (${filtered.length} shown) | Network blocked (today/session): ${latestStatsMeta.todayBlocked}/${latestStatsMeta.sessionBlocked} | X ads hidden (today/session): ${latestStatsMeta.todayXAdsHidden}/${latestStatsMeta.sessionXAdsHidden}`,
+    false
+  );
+}
+
 async function loadBlockedActivity() {
   const response = await sendMessage({ type: "GET_BLOCKED_ACTIVITY", limit: 200 });
 
@@ -315,9 +362,9 @@ async function loadBlockedActivity() {
   const entries = Array.isArray(response.blockedActivity) ? response.blockedActivity : [];
   const topDomains = Array.isArray(response.topDomains) ? response.topDomains : [];
   const topUrls = Array.isArray(response.topUrls) ? response.topUrls : [];
+  detailedEntries = entries;
   renderTopCounts(topDomainsContainer, topDomains, "No domains yet.");
   renderTopCounts(topUrlsContainer, topUrls, "No URLs yet.");
-  renderBlockedActivity(entries);
 
   const blockedCount = Number.isFinite(response.blockedActivityCount) ? response.blockedActivityCount : 0;
   const todayBlocked = Number.isFinite(response.todayBlocked) ? response.todayBlocked : 0;
@@ -333,10 +380,16 @@ async function loadBlockedActivity() {
     ? `DNR available static rules: ${dnrCapacity.availableStaticRules}`
     : "DNR available static rules: unavailable";
 
-  setActivityStatus(
-    `Entries: ${blockedCount} | Network blocked (today/session): ${todayBlocked}/${sessionBlocked} | X ads hidden (today/session): ${todayXAdsHidden}/${sessionXAdsHidden} | ${dnrLine}`,
-    false
-  );
+  latestStatsMeta = {
+    blockedCount,
+    todayBlocked,
+    sessionBlocked,
+    todayXAdsHidden,
+    sessionXAdsHidden
+  };
+
+  renderDetailedStats();
+  setActivityStatus(`${activityStatus.textContent} | ${dnrLine}`, false);
 }
 
 async function loadAllowlist() {
@@ -437,6 +490,9 @@ activityClearButton.addEventListener("click", async () => {
 
   await loadBlockedActivity();
 });
+
+activitySourceFilter.addEventListener("change", renderDetailedStats);
+activitySearchInput.addEventListener("input", renderDetailedStats);
 
 Promise.all([loadRulesetSettings(), loadAllowlist(), loadBlockedActivity()]).catch((error) => {
   setStatus(String(error), true);

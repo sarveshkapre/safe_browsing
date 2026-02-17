@@ -163,6 +163,14 @@
           <button id="activity-refresh" class="primary">Refresh</button>
           <button id="activity-clear">Clear stats</button>
         </div>
+        <div class="toolbar">
+          <select id="activity-source-filter">
+            <option value="all">All sources</option>
+            <option value="network">Network only</option>
+            <option value="x_dom">X DOM only</option>
+          </select>
+          <input id="activity-search" type="text" placeholder="Search domain or URL" style="flex:1;min-width:220px" />
+        </div>
 
         <div id="activity-status" class="sub">Loading...</div>
         <h1>Top Domains</h1>
