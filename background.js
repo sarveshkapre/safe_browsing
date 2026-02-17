@@ -600,13 +600,26 @@ async function handleGetBlockedActivity(limitInput) {
   };
 }
 
-async function handleClearBlockedActivity() {
-  blockedActivity = [];
-  sessionBlocked = 0;
-  sessionXAdsHidden = 0;
-  maybeResetDailyStats();
-  todayBlocked = 0;
-  todayXAdsHidden = 0;
+async function handleClearBlockedActivity(targetInput) {
+  const target = typeof targetInput === "string" ? targetInput : "all";
+
+  if (target === "network") {
+    blockedActivity = blockedActivity.filter((entry) => entry.source !== "network");
+    sessionBlocked = 0;
+    todayBlocked = 0;
+  } else if (target === "x_dom") {
+    blockedActivity = blockedActivity.filter((entry) => entry.source !== "x_dom");
+    sessionXAdsHidden = 0;
+    todayXAdsHidden = 0;
+  } else {
+    blockedActivity = [];
+    sessionBlocked = 0;
+    sessionXAdsHidden = 0;
+    maybeResetDailyStats();
+    todayBlocked = 0;
+    todayXAdsHidden = 0;
+  }
+
   await chrome.storage.local.set({
     statsDayKey,
     todayBlocked,
@@ -849,7 +862,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     if (message.type === "CLEAR_BLOCKED_ACTIVITY") {
-      return { ok: true, ...(await handleClearBlockedActivity()) };
+      return { ok: true, ...(await handleClearBlockedActivity(message.target)) };
     }
 
     if (message.type === "REPORT_X_AD_HIDDEN") {

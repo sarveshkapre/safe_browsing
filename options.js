@@ -13,6 +13,8 @@ const status = document.getElementById("status");
 const allowlistContainer = document.getElementById("allowlist");
 const activityRefreshButton = document.getElementById("activity-refresh");
 const activityClearButton = document.getElementById("activity-clear");
+const activityClearNetworkButton = document.getElementById("activity-clear-network");
+const activityClearXButton = document.getElementById("activity-clear-x");
 const activityStatus = document.getElementById("activity-status");
 const topDomainsContainer = document.getElementById("activity-top-domains");
 const topUrlsContainer = document.getElementById("activity-top-urls");
@@ -481,10 +483,32 @@ activityRefreshButton.addEventListener("click", () => {
 });
 
 activityClearButton.addEventListener("click", async () => {
-  const response = await sendMessage({ type: "CLEAR_BLOCKED_ACTIVITY" });
+  const response = await sendMessage({ type: "CLEAR_BLOCKED_ACTIVITY", target: "all" });
 
   if (!response.ok) {
     setActivityStatus(response.error || "Failed to clear stats", true);
+    return;
+  }
+
+  await loadBlockedActivity();
+});
+
+activityClearNetworkButton.addEventListener("click", async () => {
+  const response = await sendMessage({ type: "CLEAR_BLOCKED_ACTIVITY", target: "network" });
+
+  if (!response.ok) {
+    setActivityStatus(response.error || "Failed to clear network stats", true);
+    return;
+  }
+
+  await loadBlockedActivity();
+});
+
+activityClearXButton.addEventListener("click", async () => {
+  const response = await sendMessage({ type: "CLEAR_BLOCKED_ACTIVITY", target: "x_dom" });
+
+  if (!response.ok) {
+    setActivityStatus(response.error || "Failed to clear X DOM stats", true);
     return;
   }
 
