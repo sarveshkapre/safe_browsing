@@ -16,6 +16,8 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - Auto cookie-consent handling (tries `Reject/Only necessary` first, then hides overlays).
 - X/Twitter feed ad hiding (beta): removes timeline entries with explicit `Ad` header badge.
 - Detailed local stats: blocked URL/domain entries plus top-domain and top-URL counts.
+- Stats controls: retention window, source/search filters, sort modes, selective clear, JSON export.
+- Capacity diagnostics: available static DNR rules + debug-feedback availability surfaced in UI.
 - Branded extension icons (`16/32/48/128/256/512`) generated locally.
 - Per-site allowlist from popup.
 - Dedicated allowlist management page.
@@ -28,8 +30,8 @@ Most blockers trade simplicity for maximum coverage. This project keeps a clean 
 - X feed UX layer: lightweight content script for explicit `Ad`-badge timeline items.
 - Runtime state: background service worker (`mode`, allowlist, local toggles).
 - UI:
-  - Popup for mode toggle, current-site allowlist, and summary counters.
-  - Options page for allowlist and detailed local stats.
+  - Popup for mode toggle, current-site allowlist, and high-signal summary diagnostics.
+  - Options page for allowlist, detailed local stats, and export/clear controls.
 - Rule compiler pipeline: `sources -> normalize -> score -> shard -> output`.
 
 ## Repository layout
@@ -98,8 +100,9 @@ safe_browsing/
 6. Toggle `X ads (beta)` to hide X/Twitter timeline ads with explicit `Ad` labels.
 7. Toggle optional `Annoyances` / `Regional` filters if needed.
 8. Use `Allow ads on this site` for the current domain.
-9. Click `View detailed stats` to inspect blocked URLs/domains.
-10. Click `Manage allowlist` to remove/clear allowlisted domains.
+9. Click `View detailed stats` to inspect blocked URLs/domains, filter/sort, and export JSON.
+10. Use selective clear controls to reset all stats, network-only, or X DOM-only counters.
+11. Click `Manage allowlist` to remove/clear allowlisted domains.
 
 ## Development workflow
 
@@ -202,12 +205,14 @@ Output is written to `dist/`.
 
 The extension does not send browsing data to external servers.
 Detailed blocked-request stats are stored locally on the device and can be cleared from settings.
+Retention is user-configurable (default `30` days).
 
 ## Troubleshooting
 
 - Rules not applying: reload extension in `chrome://extensions`.
 - Site breakage: switch to `Standard` or allowlist the domain.
 - X not loading cleanly: keep `X compatibility mode` enabled.
+- Missing network stats: check `Network debug stats` line in popup/options.
 
 ## Contributing
 
