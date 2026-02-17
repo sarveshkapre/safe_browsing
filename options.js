@@ -13,6 +13,7 @@ const status = document.getElementById("status");
 const allowlistContainer = document.getElementById("allowlist");
 const activityRefreshButton = document.getElementById("activity-refresh");
 const activityClearButton = document.getElementById("activity-clear");
+const activityExportButton = document.getElementById("activity-export");
 const activityClearNetworkButton = document.getElementById("activity-clear-network");
 const activityClearXButton = document.getElementById("activity-clear-x");
 const activityStatus = document.getElementById("activity-status");
@@ -57,6 +58,18 @@ function setRulesetStatus(text, isError) {
 function setActivityStatus(text, isError) {
   activityStatus.textContent = text;
   activityStatus.className = isError ? "sub error" : "sub";
+}
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function formatTime(timestamp) {
@@ -513,6 +526,32 @@ activityClearXButton.addEventListener("click", async () => {
   }
 
   await loadBlockedActivity();
+});
+
+activityExportButton.addEventListener("click", async () => {
+  const response = await sendMessage({ type: "GET_BLOCKED_ACTIVITY", limit: 1000 });
+  if (!response.ok) {
+    setActivityStatus(response.error || "Failed to export stats", true);
+    return;
+  }
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    summary: {
+      blockedActivityCount: response.blockedActivityCount || 0,
+      sessionBlocked: response.sessionBlocked || 0,
+      todayBlocked: response.todayBlocked || 0,
+      sessionXAdsHidden: response.sessionXAdsHidden || 0,
+      todayXAdsHidden: response.todayXAdsHidden || 0
+    },
+    topDomains: response.topDomains || [],
+    topUrls: response.topUrls || [],
+    entries: response.blockedActivity || []
+  };
+
+  const dateTag = new Date().toISOString().slice(0, 10);
+  downloadJson(`safe-browsing-stats-${dateTag}.json`, payload);
+  setActivityStatus("Detailed stats exported to JSON.", false);
 });
 
 activitySourceFilter.addEventListener("change", renderDetailedStats);
