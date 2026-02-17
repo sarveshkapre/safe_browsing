@@ -277,6 +277,35 @@ function sanitizeXCompatibilityModeEnabled(input) {
   return input !== false;
 }
 
+async function getDnrCapacitySnapshot() {
+  const dnr = chrome.declarativeNetRequest;
+  if (!dnr) {
+    return null;
+  }
+
+  let availableStaticRules = null;
+  if (typeof dnr.getAvailableStaticRuleCount === "function") {
+    try {
+      availableStaticRules = await dnr.getAvailableStaticRuleCount();
+    } catch {
+      availableStaticRules = null;
+    }
+  }
+
+  return {
+    availableStaticRules,
+    guaranteedMinimumStaticRules: Number.isFinite(dnr.GUARANTEED_MINIMUM_STATIC_RULES)
+      ? dnr.GUARANTEED_MINIMUM_STATIC_RULES
+      : null,
+    maxEnabledStaticRulesets: Number.isFinite(dnr.MAX_NUMBER_OF_ENABLED_STATIC_RULESETS)
+      ? dnr.MAX_NUMBER_OF_ENABLED_STATIC_RULESETS
+      : null,
+    maxDynamicRules: Number.isFinite(dnr.MAX_NUMBER_OF_DYNAMIC_RULES)
+      ? dnr.MAX_NUMBER_OF_DYNAMIC_RULES
+      : null
+  };
+}
+
 async function getSettings() {
   const stored = await chrome.storage.local.get(SETTINGS_DEFAULTS);
   return {
@@ -540,10 +569,12 @@ async function handleGetBlockedActivity(limitInput) {
   const normalizedLimit = Number.isFinite(limit)
     ? Math.max(1, Math.min(BLOCKED_ACTIVITY_MAX, Math.floor(limit)))
     : 200;
+  const dnrCapacity = await getDnrCapacitySnapshot();
 
   return {
     blockedActivity: blockedActivity.slice(0, normalizedLimit),
     blockedActivityCount: blockedActivity.length,
+    dnrCapacity,
     ...buildStatsSummary()
   };
 }
@@ -573,6 +604,7 @@ async function handleGetState(url) {
   const settings = await getSettings();
   const domain = normalizeDomain(url || "");
   const summary = buildStatsSummary();
+  const dnrCapacity = await getDnrCapacitySnapshot();
 
   return {
     mode: settings.mode,
@@ -588,7 +620,8 @@ async function handleGetState(url) {
     todayBlocked: summary.todayBlocked,
     sessionXAdsHidden: summary.sessionXAdsHidden,
     todayXAdsHidden: summary.todayXAdsHidden,
-    blockedActivityCount: blockedActivity.length
+    blockedActivityCount: blockedActivity.length,
+    dnrCapacity
   };
 }
 

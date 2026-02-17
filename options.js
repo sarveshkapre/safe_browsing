@@ -304,9 +304,15 @@ async function loadBlockedActivity() {
   const sessionXAdsHidden = Number.isFinite(response.sessionXAdsHidden)
     ? response.sessionXAdsHidden
     : 0;
+  const dnrCapacity = response.dnrCapacity && typeof response.dnrCapacity === "object"
+    ? response.dnrCapacity
+    : null;
+  const dnrLine = dnrCapacity && Number.isFinite(dnrCapacity.availableStaticRules)
+    ? `DNR available static rules: ${dnrCapacity.availableStaticRules}`
+    : "DNR available static rules: unavailable";
 
   setActivityStatus(
-    `Entries: ${blockedCount} | Network blocked (today/session): ${todayBlocked}/${sessionBlocked} | X ads hidden (today/session): ${todayXAdsHidden}/${sessionXAdsHidden}`,
+    `Entries: ${blockedCount} | Network blocked (today/session): ${todayBlocked}/${sessionBlocked} | X ads hidden (today/session): ${todayXAdsHidden}/${sessionXAdsHidden} | ${dnrLine}`,
     false
   );
 }
