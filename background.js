@@ -28,6 +28,7 @@ const SETTINGS_DEFAULTS = {
   cookieHandlingEnabled: true,
   xAdsBlockingEnabled: true,
   xCompatibilityModeEnabled: true,
+  statsRetentionDays: 30,
   optionalRulesets: {
     annoyances: false,
     regional: false
@@ -42,6 +43,8 @@ const RULESET_IDS_FOR_STATS = new Set([
 ]);
 
 const BLOCKED_ACTIVITY_MAX = 1000;
+const MIN_STATS_RETENTION_DAYS = 1;
+const MAX_STATS_RETENTION_DAYS = 90;
 const STATS_DEFAULTS = {
   statsDayKey: "",
   todayBlocked: 0,
@@ -56,6 +59,7 @@ let todayXAdsHidden = 0;
 let sessionBlocked = 0;
 let sessionXAdsHidden = 0;
 let blockedActivity = [];
+let statsRetentionDays = SETTINGS_DEFAULTS.statsRetentionDays;
 let persistStatsTimer = null;
 
 function runDynamicRulesUpdate(task) {
@@ -173,6 +177,12 @@ function sanitizeBlockedActivity(input) {
   return out.slice(0, BLOCKED_ACTIVITY_MAX);
 }
 
+function pruneBlockedActivityByRetention(entries, retentionDays) {
+  const days = sanitizeStatsRetentionDays(retentionDays);
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return entries.filter((entry) => Number(entry.timestamp) >= cutoff).slice(0, BLOCKED_ACTIVITY_MAX);
+}
+
 function maybeResetDailyStats() {
   const current = getDayKey();
   if (statsDayKey === current) {
@@ -205,9 +215,7 @@ function scheduleStatsPersist() {
 
 function recordActivityEntry(entry) {
   blockedActivity.unshift(entry);
-  if (blockedActivity.length > BLOCKED_ACTIVITY_MAX) {
-    blockedActivity = blockedActivity.slice(0, BLOCKED_ACTIVITY_MAX);
-  }
+  blockedActivity = pruneBlockedActivityByRetention(blockedActivity, statsRetentionDays);
   scheduleStatsPersist();
 }
 
@@ -277,6 +285,14 @@ function sanitizeXCompatibilityModeEnabled(input) {
   return input !== false;
 }
 
+function sanitizeStatsRetentionDays(input) {
+  const value = Number(input);
+  if (!Number.isFinite(value)) {
+    return SETTINGS_DEFAULTS.statsRetentionDays;
+  }
+  return Math.max(MIN_STATS_RETENTION_DAYS, Math.min(MAX_STATS_RETENTION_DAYS, Math.floor(value)));
+}
+
 async function getDnrCapacitySnapshot() {
   const dnr = chrome.declarativeNetRequest;
   if (!dnr) {
@@ -315,6 +331,7 @@ async function getSettings() {
     cookieHandlingEnabled: sanitizeCookieHandlingEnabled(stored.cookieHandlingEnabled),
     xAdsBlockingEnabled: sanitizeXAdsBlockingEnabled(stored.xAdsBlockingEnabled),
     xCompatibilityModeEnabled: sanitizeXCompatibilityModeEnabled(stored.xCompatibilityModeEnabled),
+    statsRetentionDays: sanitizeStatsRetentionDays(stored.statsRetentionDays),
     optionalRulesets: sanitizeOptionalRulesets(stored.optionalRulesets)
   };
 }
@@ -476,11 +493,15 @@ async function syncFromStorage() {
 async function initializeDefaults() {
   const settings = await getSettings();
   const storedStats = await chrome.storage.local.get(STATS_DEFAULTS);
+  statsRetentionDays = settings.statsRetentionDays;
 
   statsDayKey = typeof storedStats.statsDayKey === "string" ? storedStats.statsDayKey : "";
   todayBlocked = Number.isFinite(storedStats.todayBlocked) ? storedStats.todayBlocked : 0;
   todayXAdsHidden = Number.isFinite(storedStats.todayXAdsHidden) ? storedStats.todayXAdsHidden : 0;
-  blockedActivity = sanitizeBlockedActivity(storedStats.blockedActivity);
+  blockedActivity = pruneBlockedActivityByRetention(
+    sanitizeBlockedActivity(storedStats.blockedActivity),
+    statsRetentionDays
+  );
   maybeResetDailyStats();
 
   await chrome.storage.local.set(settings);
@@ -613,6 +634,7 @@ async function handleGetState(url) {
     cookieHandlingEnabled: settings.cookieHandlingEnabled,
     xAdsBlockingEnabled: settings.xAdsBlockingEnabled,
     xCompatibilityModeEnabled: settings.xCompatibilityModeEnabled,
+    statsRetentionDays: settings.statsRetentionDays,
     domain,
     siteAllowed: domain ? settings.allowlist.includes(domain) : false,
     allowlistCount: settings.allowlist.length,
@@ -659,6 +681,15 @@ async function handleSetXCompatibilityMode(enabled) {
   await chrome.storage.local.set({ xCompatibilityModeEnabled });
   await applyXCompatibilityRules(xCompatibilityModeEnabled);
   return { xCompatibilityModeEnabled };
+}
+
+async function handleSetStatsRetentionDays(daysInput) {
+  const nextRetentionDays = sanitizeStatsRetentionDays(daysInput);
+  statsRetentionDays = nextRetentionDays;
+  blockedActivity = pruneBlockedActivityByRetention(blockedActivity, statsRetentionDays);
+  scheduleStatsPersist();
+  await chrome.storage.local.set({ statsRetentionDays });
+  return { statsRetentionDays };
 }
 
 async function handleSetOptionalRuleset(ruleset, enabled) {
@@ -728,7 +759,8 @@ async function handleGetRulesetSettings() {
     optionalRulesets: settings.optionalRulesets,
     cookieHandlingEnabled: settings.cookieHandlingEnabled,
     xAdsBlockingEnabled: settings.xAdsBlockingEnabled,
-    xCompatibilityModeEnabled: settings.xCompatibilityModeEnabled
+    xCompatibilityModeEnabled: settings.xCompatibilityModeEnabled,
+    statsRetentionDays: settings.statsRetentionDays
   };
 }
 
@@ -792,6 +824,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     if (message.type === "SET_X_COMPATIBILITY_MODE") {
       return { ok: true, ...(await handleSetXCompatibilityMode(message.enabled)) };
+    }
+
+    if (message.type === "SET_STATS_RETENTION_DAYS") {
+      return { ok: true, ...(await handleSetStatsRetentionDays(message.days)) };
     }
 
     if (message.type === "SET_OPTIONAL_RULESET") {

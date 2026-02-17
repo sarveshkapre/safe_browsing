@@ -2,6 +2,7 @@ const pausedToggle = document.getElementById("toggle-paused");
 const cookieHandlingToggle = document.getElementById("toggle-cookie-handling");
 const xAdsBlockingToggle = document.getElementById("toggle-x-ads-blocking");
 const xCompatibilityToggle = document.getElementById("toggle-x-compatibility");
+const statsRetentionInput = document.getElementById("stats-retention-days");
 const annoyancesToggle = document.getElementById("toggle-annoyances");
 const regionalToggle = document.getElementById("toggle-regional");
 const rulesetStatus = document.getElementById("ruleset-status");
@@ -63,13 +64,15 @@ function applyRulesetUI(
   paused,
   cookieHandlingEnabled,
   xAdsBlockingEnabled,
-  xCompatibilityModeEnabled
+  xCompatibilityModeEnabled,
+  statsRetentionDays
 ) {
   isApplyingRulesetState = true;
   pausedToggle.checked = paused === true;
   cookieHandlingToggle.checked = cookieHandlingEnabled !== false;
   xAdsBlockingToggle.checked = xAdsBlockingEnabled !== false;
   xCompatibilityToggle.checked = xCompatibilityModeEnabled !== false;
+  statsRetentionInput.value = String(statsRetentionDays);
   annoyancesToggle.checked = optionalRulesets.annoyances === true;
   regionalToggle.checked = optionalRulesets.regional === true;
   isApplyingRulesetState = false;
@@ -91,16 +94,20 @@ async function loadRulesetSettings() {
   const cookieHandlingEnabled = response.cookieHandlingEnabled !== false;
   const xAdsBlockingEnabled = response.xAdsBlockingEnabled !== false;
   const xCompatibilityModeEnabled = response.xCompatibilityModeEnabled !== false;
+  const statsRetentionDays = Number.isFinite(response.statsRetentionDays)
+    ? response.statsRetentionDays
+    : 30;
 
   applyRulesetUI(
     optionalRulesets,
     paused,
     cookieHandlingEnabled,
     xAdsBlockingEnabled,
-    xCompatibilityModeEnabled
+    xCompatibilityModeEnabled,
+    statsRetentionDays
   );
   setRulesetStatus(
-    `Protection: ${paused ? "paused" : "active"} | Cookie: ${cookieHandlingEnabled ? "on" : "off"} | X ads: ${xAdsBlockingEnabled ? "on" : "off"} | X compat: ${xCompatibilityModeEnabled ? "on" : "off"} | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
+    `Protection: ${paused ? "paused" : "active"} | Cookie: ${cookieHandlingEnabled ? "on" : "off"} | X ads: ${xAdsBlockingEnabled ? "on" : "off"} | X compat: ${xCompatibilityModeEnabled ? "on" : "off"} | Retention: ${statsRetentionDays}d | Annoyances: ${optionalRulesets.annoyances ? "on" : "off"} | Regional: ${optionalRulesets.regional ? "on" : "off"}`,
     false
   );
 }
@@ -174,6 +181,21 @@ async function setXCompatibilityMode(enabled) {
   }
 
   await loadRulesetSettings();
+}
+
+async function setStatsRetentionDays(days) {
+  const response = await sendMessage({
+    type: "SET_STATS_RETENTION_DAYS",
+    days
+  });
+
+  if (!response.ok) {
+    setRulesetStatus(response.error || "Failed to update stats retention", true);
+    return;
+  }
+
+  await loadRulesetSettings();
+  await loadBlockedActivity();
 }
 
 async function removeDomain(domain) {
@@ -359,6 +381,15 @@ xCompatibilityToggle.addEventListener("change", async () => {
   }
 
   await setXCompatibilityMode(xCompatibilityToggle.checked);
+});
+
+statsRetentionInput.addEventListener("change", async () => {
+  if (isApplyingRulesetState) {
+    return;
+  }
+
+  const next = Number(statsRetentionInput.value);
+  await setStatsRetentionDays(next);
 });
 
 annoyancesToggle.addEventListener("change", async () => {
