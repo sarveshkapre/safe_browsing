@@ -20,6 +20,7 @@ const activityStatus = document.getElementById("activity-status");
 const topDomainsContainer = document.getElementById("activity-top-domains");
 const topUrlsContainer = document.getElementById("activity-top-urls");
 const blockedActivityContainer = document.getElementById("blocked-activity");
+const activitySortSelect = document.getElementById("activity-sort");
 const activitySourceFilter = document.getElementById("activity-source-filter");
 const activitySearchInput = document.getElementById("activity-search");
 
@@ -356,8 +357,30 @@ function filterEntries(entries) {
   });
 }
 
+function sortEntries(entries) {
+  const mode = activitySortSelect.value || "newest";
+  const copy = entries.slice();
+
+  if (mode === "oldest") {
+    copy.sort((left, right) => Number(left.timestamp) - Number(right.timestamp));
+    return copy;
+  }
+
+  if (mode === "domain") {
+    copy.sort((left, right) => {
+      const a = (left.blockedDomain || left.pageDomain || "").toLowerCase();
+      const b = (right.blockedDomain || right.pageDomain || "").toLowerCase();
+      return a.localeCompare(b);
+    });
+    return copy;
+  }
+
+  copy.sort((left, right) => Number(right.timestamp) - Number(left.timestamp));
+  return copy;
+}
+
 function renderDetailedStats() {
-  const filtered = filterEntries(detailedEntries);
+  const filtered = sortEntries(filterEntries(detailedEntries));
   renderBlockedActivity(filtered);
 
   setActivityStatus(
@@ -557,6 +580,7 @@ activityExportButton.addEventListener("click", async () => {
 
 activitySourceFilter.addEventListener("change", renderDetailedStats);
 activitySearchInput.addEventListener("input", renderDetailedStats);
+activitySortSelect.addEventListener("change", renderDetailedStats);
 
 Promise.all([loadRulesetSettings(), loadAllowlist(), loadBlockedActivity()]).catch((error) => {
   setStatus(String(error), true);
