@@ -293,6 +293,10 @@ function sanitizeStatsRetentionDays(input) {
   return Math.max(MIN_STATS_RETENTION_DAYS, Math.min(MAX_STATS_RETENTION_DAYS, Math.floor(value)));
 }
 
+function isNetworkDebugAvailable() {
+  return Boolean(chrome.declarativeNetRequest && chrome.declarativeNetRequest.onRuleMatchedDebug);
+}
+
 async function getDnrCapacitySnapshot() {
   const dnr = chrome.declarativeNetRequest;
   if (!dnr) {
@@ -595,6 +599,7 @@ async function handleGetBlockedActivity(limitInput) {
   return {
     blockedActivity: blockedActivity.slice(0, normalizedLimit),
     blockedActivityCount: blockedActivity.length,
+    networkDebugAvailable: isNetworkDebugAvailable(),
     dnrCapacity,
     ...buildStatsSummary()
   };
@@ -659,6 +664,7 @@ async function handleGetState(url) {
     topBlockedDomain: Array.isArray(summary.topDomains) && summary.topDomains.length
       ? summary.topDomains[0].value
       : "",
+    networkDebugAvailable: isNetworkDebugAvailable(),
     dnrCapacity
   };
 }

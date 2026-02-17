@@ -394,6 +394,7 @@ async function loadBlockedActivity() {
   const dnrLine = dnrCapacity && Number.isFinite(dnrCapacity.availableStaticRules)
     ? `DNR available static rules: ${dnrCapacity.availableStaticRules}`
     : "DNR available static rules: unavailable";
+  const debugLine = `Network debug stats: ${response.networkDebugAvailable === true ? "available" : "unavailable"}`;
 
   latestStatsMeta = {
     blockedCount,
@@ -404,7 +405,7 @@ async function loadBlockedActivity() {
   };
 
   renderDetailedStats();
-  setActivityStatus(`${activityStatus.textContent} | ${dnrLine}`, false);
+  setActivityStatus(`${activityStatus.textContent} | ${dnrLine} | ${debugLine}`, false);
 }
 
 async function loadAllowlist() {

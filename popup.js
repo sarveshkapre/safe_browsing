@@ -28,6 +28,7 @@ let blockedActivityCount = 0;
 let dnrCapacity = null;
 let statsRetentionDays = 30;
 let topBlockedDomain = "";
+let networkDebugAvailable = false;
 let optionalRulesets = {
   annoyances: false,
   regional: false
@@ -86,9 +87,10 @@ function render() {
   const dnrLine = dnrCapacity && Number.isFinite(dnrCapacity.availableStaticRules)
     ? `DNR capacity: ${dnrCapacity.availableStaticRules} static rules available`
     : "DNR capacity: unavailable";
+  const debugLine = `Network debug stats: ${networkDebugAvailable ? "available" : "unavailable"}`;
 
   meta.classList.remove("error");
-  meta.textContent = `${pausedLine}\n${xCompatLine}\n${siteLine}\n${allowlistLine}\n${blockedLine}\n${xBlockedLine}\n${detailLine}\n${topDomainLine}\n${retentionLine}\n${dnrLine}`;
+  meta.textContent = `${pausedLine}\n${xCompatLine}\n${siteLine}\n${allowlistLine}\n${blockedLine}\n${xBlockedLine}\n${detailLine}\n${topDomainLine}\n${retentionLine}\n${dnrLine}\n${debugLine}`;
 
   isApplyingState = false;
 }
@@ -123,6 +125,7 @@ async function loadState() {
   statsRetentionDays = Number.isFinite(response.statsRetentionDays) ? response.statsRetentionDays : 30;
   topBlockedDomain = typeof response.topBlockedDomain === "string" ? response.topBlockedDomain : "";
   dnrCapacity = response.dnrCapacity || null;
+  networkDebugAvailable = response.networkDebugAvailable === true;
   optionalRulesets = response.optionalRulesets || optionalRulesets;
 
   render();
